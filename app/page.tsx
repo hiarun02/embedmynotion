@@ -1,24 +1,38 @@
-import {
-  FaqSection,
-  FeaturesSection,
-  Footer,
-  Header,
-  HeroSection,
-  HowItWorksSection,
-  ProblemSection,
-  UseCasesSection,
-} from "@/app/components/landing-page";
+import { connection } from "next/server";
 
-export default function Home() {
+import { Logo } from "./components/Logo";
+import { FaqSection } from "./components/landing-page/FaqSection";
+import { FeaturesSection } from "./components/landing-page/FeaturesSection";
+import { Footer } from "./components/landing-page/Footer";
+import { Header } from "./components/landing-page/Header";
+import { HeroSection } from "./components/landing-page/HeroSection";
+import { HowItWorksSection } from "./components/landing-page/HowItWorksSection";
+import { ProblemSection } from "./components/landing-page/ProblemSection";
+import { isSupabaseConfigured } from "@/lib/supabase/config";
+import { createClient } from "@/lib/supabase/server";
+
+export const instant = false;
+
+export default async function Home() {
+  await connection();
+
+  let isAuthenticated = false;
+  if (isSupabaseConfigured()) {
+    const supabase = await createClient();
+    const { data } = await supabase.auth.getClaims();
+    isAuthenticated = Boolean(data?.claims);
+  }
+
   return (
     <>
-      <Header />
+      <Header isAuthenticated={isAuthenticated}>
+        <Logo />
+      </Header>
       <main id="top">
-        <HeroSection />
+        <HeroSection isAuthenticated={isAuthenticated} />
         <ProblemSection />
         <FeaturesSection />
         <HowItWorksSection />
-        <UseCasesSection />
         <FaqSection />
       </main>
       <Footer />

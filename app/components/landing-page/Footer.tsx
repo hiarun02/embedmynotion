@@ -1,6 +1,4 @@
-import { Logo } from "./Logo";
-
-const CURRENT_YEAR = 2026;
+import { Logo } from "@/app/components/Logo";
 
 export function Footer() {
   return (
@@ -13,7 +11,7 @@ export function Footer() {
           <div><h3>Legal</h3><a href="#footer-note">Privacy Policy</a><a href="#footer-note">Terms of Service</a></div>
         </div>
         <div className="footer-bottom" id="footer-note">
-          <span>© {CURRENT_YEAR} embedmynotion. All rights reserved.</span>
+          <span>© 2026 embedmynotion. All rights reserved.</span>
           <span>embedmynotion is an independent product and is not affiliated with Notion.</span>
         </div>
       </div>

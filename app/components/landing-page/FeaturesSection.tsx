@@ -1,4 +1,5 @@
 import { Blocks, Eye, Gauge, LayoutDashboard, Link2, Palette } from "lucide-react";
+
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { SectionIntro } from "./SectionIntro";
 
