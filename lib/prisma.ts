@@ -18,7 +18,7 @@ function createPrismaClient() {
     connectionString,
     connectionTimeoutMillis: 10_000,
     idleTimeoutMillis: 10_000,
-    max: 5,
+    max: process.env.NODE_ENV === "production" ? 1 : 5,
   });
 
   return new PrismaClient({ adapter });

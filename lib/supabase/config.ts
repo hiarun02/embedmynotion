@@ -1,3 +1,5 @@
+import "server-only";
+
 export function isSupabaseConfigured() {
   return Boolean(
     process.env.SUPABASE_URL && process.env.SUPABASE_PUBLISHABLE_KEY,
