@@ -1,20 +1,79 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { embedCode, initialWorkspace, validNotionUrl, validWorkspace } from "../lib/dashboard-model.ts";
+import { embedCode, serializeEmbed, validNotionUrl } from "../lib/dashboard-model.ts";
+
+const embed = {
+  id: "studio-handbook",
+  title: "Studio handbook",
+  notionUrl: "https://studio.notion.site/handbook",
+  theme: "light",
+  height: 700,
+  fullWidth: true,
+  width: 640,
+  fullHeight: false,
+  border: false,
+  borderWidth: 1,
+  borderColor: "#e5e7eb",
+  radius: 8,
+  active: true,
+  createdAt: "2026-10-24T12:00:00Z",
+  updatedAt: "2026-10-29T08:47:00Z",
+};
 
 test("accepts only HTTPS Notion page links", () => {
   for (const value of ["https://studio.notion.site/handbook", "https://www.notion.so/page"]) assert.equal(validNotionUrl(value), true);
   for (const value of ["javascript:alert(1)", "https://notion.site.evil.com/page", "https://evilnotion.so/page", "http://notion.so/page", "https://notion.so/", "https://user:pass@notion.so/page", "invalid"]) assert.equal(validNotionUrl(value), false);
 });
-test("validates saved workspace data before rendering", () => {
-  assert.equal(validWorkspace(initialWorkspace), true);
-  for (const value of [null, {}, { ...initialWorkspace, plan: "invalid" }, { ...initialWorkspace, embeds: [{ ...initialWorkspace.embeds[0], height: -1 }] }]) assert.equal(validWorkspace(value), false);
-});
-test("iframe points to the app route and escapes user titles", () => {
-  const code = embedCode({ ...initialWorkspace.embeds[0], title: 'A "quote" <script>', border: true, fullWidth: false }, "https://embed.example");
+test("iframe points to the app route and applies frame customization", () => {
+  const code = embedCode(
+    {
+      ...embed,
+      title: 'A "quote" <script>',
+      border: true,
+      borderWidth: 3,
+      borderColor: "#ff5a1f",
+      fullWidth: false,
+      width: 880,
+      fullHeight: true,
+      radius: 16,
+    },
+    "https://embed.example",
+  );
   assert.ok(code.includes('src="https://embed.example/embed/studio-handbook"'));
-  assert.ok(code.includes('width="640"'));
+  assert.ok(code.includes('width="880"'));
+  assert.ok(code.includes("width:880px"));
+  assert.ok(code.includes('height="100%"'));
   assert.ok(code.includes("&quot;quote&quot; &lt;script&gt;"));
-  assert.ok(code.includes("border:1px solid"));
+  assert.ok(code.includes("height:100vh"));
+  assert.ok(code.includes("border:3px solid #ff5a1f"));
+  assert.ok(code.includes("border-radius:16px"));
   assert.ok(!code.includes("notion.site"));
+});
+
+test("serializes database embed fields for the dashboard", () => {
+  assert.deepEqual(
+    serializeEmbed({
+      id: embed.id,
+      title: embed.title,
+      notionUrl: embed.notionUrl,
+      theme: "DARK",
+      height: embed.height,
+      fullWidth: embed.fullWidth,
+      width: embed.width,
+      fullHeight: embed.fullHeight,
+      border: embed.border,
+      borderWidth: embed.borderWidth,
+      borderColor: embed.borderColor,
+      borderRadius: embed.radius,
+      isActive: embed.active,
+      createdAt: new Date(embed.createdAt),
+      updatedAt: new Date(embed.updatedAt),
+    }),
+    {
+      ...embed,
+      theme: "dark",
+      createdAt: "2026-10-24T12:00:00.000Z",
+      updatedAt: "2026-10-29T08:47:00.000Z",
+    },
+  );
 });

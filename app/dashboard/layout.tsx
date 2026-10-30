@@ -7,6 +7,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { prisma } from "@/lib/prisma";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
+import { serializeEmbed } from "@/lib/dashboard-model";
 import "./dashboard.css";
 
 export const instant = false;
@@ -57,11 +58,23 @@ export default async function Layout({ children }: { children: React.ReactNode }
     user.identities?.find((identity) => identity.provider === "google")
       ?.provider ?? stringMetadata(user.app_metadata.provider);
 
+  const [embeds, subscription] = await Promise.all([
+    prisma.embed.findMany({
+      where: { userId: user.id },
+      orderBy: { createdAt: "desc" },
+    }),
+    prisma.subscription.findUnique({ where: { userId: user.id } }),
+  ]);
+
+  const hasProPlan =
+    subscription?.plan === "PRO" &&
+    (subscription.status === "ACTIVE" || subscription.status === "TRIALING");
+
   return (
     <>
       <Toaster position="bottom-right" />
       <WorkspaceProvider
-        profile={{
+        initialWorkspace={{
           name:
             storedProfile.name ??
             authName ??
@@ -69,6 +82,8 @@ export default async function Layout({ children }: { children: React.ReactNode }
           email: storedProfile.email ?? email,
           avatarUrl: storedProfile.avatarUrl ?? authAvatar,
           authProvider: provider,
+          plan: hasProPlan ? "Pro" : "Free",
+          embeds: embeds.map(serializeEmbed),
         }}
       >
         <DashboardShell>{children}</DashboardShell>

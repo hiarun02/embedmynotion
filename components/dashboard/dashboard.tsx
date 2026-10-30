@@ -79,7 +79,7 @@ import {
 } from "@/components/ui/table";
 import { embedCode, type Embed } from "@/lib/dashboard-model";
 import { useWorkspace } from "./store";
-import { DocumentPreview } from "./preview";
+import { NotionFrame } from "./notion-frame";
 import { Logo } from "@/app/components/Logo";
 
 export async function copyCode(embed: Embed) {
@@ -94,6 +94,16 @@ export async function copyCode(embed: Embed) {
     );
   }
 }
+
+async function deleteEmbed(id: string) {
+  const response = await fetch(`/api/embeds/${id}`, { method: "DELETE" });
+  if (response.ok) return;
+
+  const result = (await response.json().catch(() => null)) as {
+    message?: string;
+  } | null;
+  throw new Error(result?.message ?? "The embed could not be deleted.");
+}
 const navigation = [
   { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
   { href: "/dashboard/embeds", label: "Embeds", icon: Code2 },
@@ -104,6 +114,11 @@ export function DashboardShell({ children }: { children: ReactNode }) {
   const { workspace } = useWorkspace();
   const [mobile, setMobile] = useState(false);
   const signOutForm = useRef<HTMLFormElement>(null);
+  const isEditorPage =
+    pathname === "/dashboard/embeds/new" ||
+    /^\/dashboard\/embeds\/[^/]+$/.test(pathname);
+  const isCenteredPage =
+    pathname === "/dashboard" || pathname === "/dashboard/embeds";
   const currentItem =
     navigation.find(
       (n) => n.href !== "/dashboard" && pathname.startsWith(n.href),
@@ -225,7 +240,11 @@ export function DashboardShell({ children }: { children: ReactNode }) {
             Local demo
           </Badge>
         </header>
-        <main className="dashboard-content">{children}</main>
+        <main
+          className={`dashboard-content${isEditorPage ? " dashboard-content-editor" : ""}${isCenteredPage ? " dashboard-content-centered" : ""}`}
+        >
+          {children}
+        </main>
         <footer className="dashboard-footer">
           <span>A little Notion. A lot of possibility.</span>
           <span>EmbedMyNotion</span>
@@ -479,13 +498,25 @@ export function DashboardHome() {
             <AlertDialogAction
               variant="destructive"
               className="delete-dialog-action"
-              onClick={() => {
-                update({
-                  ...workspace,
-                  embeds: workspace.embeds.filter((e) => e.id !== deleting?.id),
-                });
-                setDeleting(null);
-                toast.success("Embed deleted");
+              onClick={async () => {
+                if (!deleting) return;
+                try {
+                  await deleteEmbed(deleting.id);
+                  update({
+                    ...workspace,
+                    embeds: workspace.embeds.filter(
+                      (embed) => embed.id !== deleting.id,
+                    ),
+                  });
+                  setDeleting(null);
+                  toast.success("Embed deleted");
+                } catch (error) {
+                  toast.error(
+                    error instanceof Error
+                      ? error.message
+                      : "The embed could not be deleted.",
+                  );
+                }
               }}
             >
               <Trash2 size={14} /> Delete embed
@@ -501,10 +532,10 @@ export function DashboardHome() {
           <DialogHeader>
             <DialogTitle>{preview?.title}</DialogTitle>
             <DialogDescription>
-              Illustrative preview · Not live Notion content.
+              Live content from the published Notion page.
             </DialogDescription>
           </DialogHeader>
-          {preview && <DocumentPreview embed={preview} />}
+          {preview && <NotionFrame embed={preview} />}
         </DialogContent>
       </Dialog>
     </div>
@@ -728,13 +759,25 @@ export function EmbedsList({ compact = false }: { compact?: boolean }) {
             <AlertDialogAction
               variant="destructive"
               className="delete-dialog-action"
-              onClick={() => {
-                update({
-                  ...workspace,
-                  embeds: workspace.embeds.filter((e) => e.id !== deleting?.id),
-                });
-                setDeleting(null);
-                toast.success("Embed deleted");
+              onClick={async () => {
+                if (!deleting) return;
+                try {
+                  await deleteEmbed(deleting.id);
+                  update({
+                    ...workspace,
+                    embeds: workspace.embeds.filter(
+                      (embed) => embed.id !== deleting.id,
+                    ),
+                  });
+                  setDeleting(null);
+                  toast.success("Embed deleted");
+                } catch (error) {
+                  toast.error(
+                    error instanceof Error
+                      ? error.message
+                      : "The embed could not be deleted.",
+                  );
+                }
               }}
             >
               <Trash2 size={14} /> Delete embed
@@ -750,10 +793,10 @@ export function EmbedsList({ compact = false }: { compact?: boolean }) {
           <DialogHeader>
             <DialogTitle>{preview?.title}</DialogTitle>
             <DialogDescription>
-              Illustrative preview · Not live Notion content.
+              Live content from the published Notion page.
             </DialogDescription>
           </DialogHeader>
-          {preview && <DocumentPreview embed={preview} />}
+          {preview && <NotionFrame embed={preview} />}
         </DialogContent>
       </Dialog>
     </>
