@@ -3,13 +3,18 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import {
-  ArrowLeft,
   Check,
+  Code2,
   Copy,
-  Globe,
+  FileCode2,
+  Link2,
   Lock,
-  Monitor,
+  Maximize2,
+  MoreVertical,
+  MoveHorizontal,
+  MoveVertical,
   Save,
+  Square,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -31,10 +36,17 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { embedCode, validNotionUrl, type Embed } from "@/lib/dashboard-model";
 import { useWorkspace } from "./store";
 import { UpgradeDialog, copyCode } from "./dashboard";
-import { DocumentPreview } from "./preview";
+import { NotionFrame } from "./notion-frame";
 
 export function EmbedEditor({ id }: { id?: string }) {
   const router = useRouter();
@@ -48,10 +60,15 @@ export function EmbedEditor({ id }: { id?: string }) {
       theme: "light",
       height: 700,
       fullWidth: true,
+      width: 640,
+      fullHeight: false,
       border: false,
+      borderWidth: 1,
+      borderColor: "#e5e7eb",
       radius: 8,
       active: true,
       createdAt: "",
+      updatedAt: "",
     },
   );
   const [error, setError] = useState("");
@@ -73,11 +90,20 @@ export function EmbedEditor({ id }: { id?: string }) {
       !Number.isInteger(draft.height) ||
       draft.height < 200 ||
       draft.height > 2000 ||
+      !Number.isInteger(draft.width) ||
+      draft.width < 320 ||
+      draft.width > 1920 ||
       !Number.isInteger(draft.radius) ||
       draft.radius < 0 ||
-      draft.radius > 32
+      draft.radius > 64 ||
+      !Number.isInteger(draft.borderWidth) ||
+      draft.borderWidth < 1 ||
+      draft.borderWidth > 12 ||
+      !/^#[0-9a-f]{6}$/i.test(draft.borderColor)
     )
-      return setError("Use a height of 200–2000px and a radius of 0–32px.");
+      return setError(
+        "Use a width of 320–1920px, height of 200–2000px, radius of 0–64px, border width of 1–12px, and a valid hex color.",
+      );
     if (
       !id &&
       !created &&
@@ -87,24 +113,45 @@ export function EmbedEditor({ id }: { id?: string }) {
       return;
     }
     setSaving(true);
-    const saved = {
-      ...draft,
-      title: draft.title.trim(),
-      id: id ?? created?.id ?? crypto.randomUUID(),
-      createdAt:
-        existing?.createdAt ?? created?.createdAt ?? new Date().toISOString(),
-    };
-    update({
-      ...workspace,
-      embeds:
-        id || created
-          ? workspace.embeds.map((e) => (e.id === saved.id ? saved : e))
-          : [...workspace.embeds, saved],
-    });
-    setDraft(saved);
-    setSaving(false);
-    toast.success(id || created ? "Changes saved" : "Your embed is ready");
-    if (!id) setCreated(saved);
+    try {
+      const targetId = id ?? created?.id;
+      const response = await fetch(
+        targetId ? `/api/embeds/${targetId}` : "/api/embeds",
+        {
+          method: targetId ? "PATCH" : "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(draft),
+        },
+      );
+      const result = (await response.json()) as {
+        embed?: Embed;
+        message?: string;
+      };
+      if (!response.ok || !result.embed) {
+        throw new Error(result.message ?? "Your embed could not be saved.");
+      }
+
+      const saved = result.embed;
+      update({
+        ...workspace,
+        embeds: targetId
+          ? workspace.embeds.map((embed) =>
+            embed.id === saved.id ? saved : embed,
+          )
+          : [saved, ...workspace.embeds],
+      });
+      setDraft(saved);
+      toast.success(targetId ? "Changes saved" : "Your embed is ready");
+      if (!id) setCreated(saved);
+    } catch (saveError) {
+      setError(
+        saveError instanceof Error
+          ? saveError.message
+          : "Your embed could not be saved.",
+      );
+    } finally {
+      setSaving(false);
+    }
   }
   if (id && !existing)
     return (
@@ -116,43 +163,202 @@ export function EmbedEditor({ id }: { id?: string }) {
     );
   return (
     <div className="embed-editor-page">
-      <Link href="/dashboard/embeds" className="back-link">
-        <ArrowLeft size={14} />
-        My Embeds
-      </Link>
       <form onSubmit={save}>
         <div className="editor-grid">
           <div className="editor-settings">
-            <div className="editor-panel-heading">
-
-              <h1>{id ? "Edit embed" : "Create an embed"}</h1>
-              <p>A little customization. A perfect fit for your website.</p>
-            </div>
+            {(existing || created) && (
+              <EditorCodePanel embed={existing ?? created!} />
+            )}
             <Card className="settings-panel">
-              <div className="field">
-                <Label htmlFor="embed-name">Embed name</Label>
-                <Input
-                  id="embed-name"
-                  value={draft.title}
-                  onChange={(e) => change("title", e.target.value)}
-                  placeholder="e.g. Studio handbook"
-                  maxLength={100}
-                  required
-                />
+              <section
+                className="notion-source-section"
+                aria-labelledby="notion-source-title"
+              >
+                <div className="notion-source-heading">
+                  <span aria-hidden="true">
+                    <Link2 />
+                  </span>
+                  <div>
+                    <h3 id="notion-source-title">Notion page</h3>
+                    <p>Choose the published page behind this embed.</p>
+                  </div>
+                </div>
+                <div className="field notion-source-field">
+                  <Label htmlFor="notion-url">Page link</Label>
+                  <Input
+                    id="notion-url"
+                    type="url"
+                    value={draft.notionUrl}
+                    onChange={(e) => change("notionUrl", e.target.value)}
+                    placeholder="https://your-space.notion.site/…"
+                    readOnly={Boolean(existing || created)}
+                    aria-describedby="notion-url-help"
+                    required
+                  />
+                  <small id="notion-url-help">
+                    {existing || created
+                      ? "This page is fixed for this embed. Create a new embed to use another page."
+                      : "Paste a public Notion link. In Notion, choose Share → Publish first."}
+                  </small>
+                </div>
+                <div className="field notion-source-field">
+                  <Label htmlFor="embed-name">Name</Label>
+                  <Input
+                    id="embed-name"
+                    value={draft.title}
+                    onChange={(e) => change("title", e.target.value)}
+                    placeholder="e.g. Studio handbook"
+                    maxLength={100}
+                    aria-describedby="embed-name-help"
+                    required
+                  />
+                  <small id="embed-name-help">
+                    Only you see this name in your dashboard.
+                  </small>
+                </div>
+              </section>
+              <div className="panel-divider" />
+              <div className="editor-section-title">
+                <span aria-hidden="true">
+                  <Maximize2 />
+                </span>
+                <div>
+                  <h3>Dimensions &amp; frame</h3>
+                  <p>Control how the embed fits into your website.</p>
+                </div>
               </div>
-              <div className="field">
-                <Label htmlFor="notion-url">Public Notion page URL</Label>
-                <Input
-                  id="notion-url"
-                  type="url"
-                  value={draft.notionUrl}
-                  onChange={(e) => change("notionUrl", e.target.value)}
-                  placeholder="https://your-space.notion.site/…"
-                  required
-                />
-                <small>
-                  In Notion, choose Share → Publish to make your page public.
-                </small>
+              <div className="dimension-card">
+                <div className="dimension-toggle">
+                  <span className="dimension-icon" aria-hidden="true">
+                    <MoveHorizontal />
+                  </span>
+                  <div>
+                    <Label htmlFor="fullWidth">Full width</Label>
+                    <small>Stretch to the width of its container</small>
+                  </div>
+                  <Switch
+                    id="fullWidth"
+                    checked={draft.fullWidth}
+                    onCheckedChange={(value) => change("fullWidth", value)}
+                  />
+                </div>
+                <div className="dimension-height-field">
+                  <div>
+                    <Label htmlFor="embed-width">Custom width</Label>
+                    <small>Used when full width is off</small>
+                  </div>
+                  <Input
+                    id="embed-width"
+                    type="number"
+                    min={320}
+                    max={1920}
+                    value={draft.width}
+                    onChange={(e) => change("width", Number(e.target.value))}
+                    disabled={draft.fullWidth}
+                    required
+                  />
+                </div>
+                <div className="dimension-toggle">
+                  <span className="dimension-icon" aria-hidden="true">
+                    <MoveVertical />
+                  </span>
+                  <div>
+                    <Label htmlFor="fullHeight">Full height</Label>
+                    <small>Fill the visitor’s viewport height</small>
+                  </div>
+                  <Switch
+                    id="fullHeight"
+                    checked={draft.fullHeight}
+                    onCheckedChange={(value) => change("fullHeight", value)}
+                  />
+                </div>
+                <div className="dimension-height-field">
+                  <div>
+                    <Label htmlFor="embed-height">Custom height</Label>
+                    <small>Used when full height is off</small>
+                  </div>
+                  <Input
+                    id="embed-height"
+                    type="number"
+                    min={200}
+                    max={2000}
+                    value={draft.height}
+                    onChange={(e) => change("height", Number(e.target.value))}
+                    disabled={draft.fullHeight}
+                    required
+                  />
+                </div>
+                <div className="dimension-toggle border-toggle">
+                  <span className="dimension-icon" aria-hidden="true">
+                    <Square />
+                  </span>
+                  <div>
+                    <Label htmlFor="border">Border</Label>
+                    <small>Add a customizable frame</small>
+                  </div>
+                  <Switch
+                    id="border"
+                    checked={draft.border}
+                    onCheckedChange={(value) => change("border", value)}
+                  />
+                </div>
+                <div className="frame-controls">
+                  <div className="frame-number-field">
+                    <Label htmlFor="border-width">Border size</Label>
+                    <div>
+                      <Input
+                        id="border-width"
+                        type="number"
+                        min={1}
+                        max={12}
+                        value={draft.borderWidth}
+                        onChange={(e) =>
+                          change("borderWidth", Number(e.target.value))
+                        }
+                        disabled={!draft.border}
+                        required
+                      />
+                      <span>px</span>
+                    </div>
+                  </div>
+                  <div className="frame-number-field">
+                    <Label htmlFor="embed-radius">Corner radius</Label>
+                    <div>
+                      <Input
+                        id="embed-radius"
+                        type="number"
+                        min={0}
+                        max={64}
+                        value={draft.radius}
+                        onChange={(e) =>
+                          change("radius", Number(e.target.value))
+                        }
+                        required
+                      />
+                      <span>px</span>
+                    </div>
+                  </div>
+                  <div className="frame-color-field">
+                    <Label htmlFor="border-color">Border color</Label>
+                    <div className="frame-color-control">
+                      <input
+                        id="border-color"
+                        type="color"
+                        value={draft.borderColor}
+                        onChange={(e) => change("borderColor", e.target.value)}
+                        disabled={!draft.border}
+                      />
+                      <Input
+                        aria-label="Border color hex value"
+                        value={draft.borderColor}
+                        onChange={(e) => change("borderColor", e.target.value)}
+                        maxLength={7}
+                        disabled={!draft.border}
+                        spellCheck={false}
+                      />
+                    </div>
+                  </div>
+                </div>
               </div>
               <div className="panel-divider" />
               <h3>Appearance</h3>
@@ -179,63 +385,18 @@ export function EmbedEditor({ id }: { id?: string }) {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="field">
-                  <Label htmlFor="embed-height">Height (px)</Label>
-                  <Input
-                    id="embed-height"
-                    type="number"
-                    min={200}
-                    max={2000}
-                    value={draft.height}
-                    onChange={(e) => change("height", Number(e.target.value))}
-                    required
-                  />
+              <div className="panel-divider" />
+              <div className="switch-field active-embed-switch">
+                <div>
+                  <Label htmlFor="active">Active embed</Label>
+                  <small>Make this published embed available</small>
                 </div>
-                <div className="field">
-                  <Label htmlFor="embed-radius">Border radius (px)</Label>
-                  <Input
-                    id="embed-radius"
-                    type="number"
-                    min={0}
-                    max={32}
-                    value={draft.radius}
-                    onChange={(e) => change("radius", Number(e.target.value))}
-                    required
-                  />
-                </div>
+                <Switch
+                  id="active"
+                  checked={draft.active}
+                  onCheckedChange={(value) => change("active", value)}
+                />
               </div>
-              {(
-                [
-                  {
-                    key: "fullWidth",
-                    title: "Full width",
-                    detail: "Fill the available container width",
-                  },
-                  {
-                    key: "border",
-                    title: "Show border",
-                    detail: "A subtle outline around your content",
-                  },
-                  {
-                    key: "active",
-                    title: "Active embed",
-                    detail: "Make this demo preview available",
-                  },
-                ] as const
-              ).map((field) => (
-                <div className="switch-field" key={field.key}>
-                  <div>
-                    <Label htmlFor={field.key}>{field.title}</Label>
-                    <small>{field.detail}</small>
-                  </div>
-                  <Switch
-                    id={field.key}
-                    checked={draft[field.key]}
-                    onCheckedChange={(v) => change(field.key, v)}
-                  />
-                </div>
-              ))}
               <div className="pro-feature">
                 <Lock size={14} />
                 <span>Remove watermark</span>
@@ -268,35 +429,16 @@ export function EmbedEditor({ id }: { id?: string }) {
               </Button>
             </div>
           </div>
-          <div className="editor-preview">
-            <div className="preview-heading">
-              <span>
-                <Monitor size={15} />
-                Live appearance preview
-              </span>
-              <span className="text-xs text-muted-foreground">
-                {draft.height}px
-              </span>
-            </div>
+          <div
+            className={`editor-preview ${
+              draft.fullHeight ? "is-full-height" : "is-fixed-height"
+            }`}
+          >
             <div className="preview-browser">
-              <div className="browser-toolbar">
-                <span className="browser-dots">● ● ●</span>
-                <span>
-                  <Globe size={11} /> your-website.com
-                </span>
-                <Lock size={11} />
-              </div>
               <div className="preview-canvas">
-                <DocumentPreview embed={draft} />
+                <NotionFrame embed={draft} />
               </div>
             </div>
-            <p className="preview-disclaimer">
-              Sample document content. Your Notion page is not fetched in this
-              UI demo.
-            </p>
-            {(existing || created) && (
-              <CodePanel embed={existing ?? created!} />
-            )}
           </div>
         </div>
       </form>
@@ -315,8 +457,8 @@ export function EmbedEditor({ id }: { id?: string }) {
             </span>
             <DialogTitle>Your embed is ready.</DialogTitle>
             <DialogDescription>
-              Copy this snippet into your website’s HTML. In this demo, it
-              renders sample content from this browser.
+              Copy this snippet into your website’s HTML to show the published
+              Notion page.
             </DialogDescription>
           </DialogHeader>
           {created && (
@@ -336,6 +478,65 @@ export function EmbedEditor({ id }: { id?: string }) {
     </div>
   );
 }
+
+function EditorCodePanel({ embed }: { embed: Embed }) {
+  const origin = typeof window === "undefined" ? "" : window.location.origin;
+  const publicUrl = `${origin}/embed/${encodeURIComponent(embed.id)}`;
+  const shortcode = `[iframe src="${publicUrl}" width="${embed.fullWidth ? "100%" : embed.width}" height="${embed.fullHeight ? "100%" : embed.height}" style="border:${embed.border ? `${embed.borderWidth}px solid ${embed.borderColor}` : "0"};border-radius:${embed.radius}px;max-width:100%"]`;
+
+  async function copyUrl() {
+    await navigator.clipboard.writeText(publicUrl);
+    toast.success("Embed URL copied");
+  }
+
+  async function copyShortcode() {
+    await navigator.clipboard.writeText(shortcode);
+    toast.success("WordPress shortcode copied");
+  }
+
+  return (
+    <section className="editor-code-panel" aria-label="Customization actions">
+      <div className="editor-code-heading">
+        <div>
+          <strong>Customization</strong>
+          <small>Shape how this embed appears on your website.</small>
+        </div>
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={
+              <button
+                type="button"
+                className="editor-more-button"
+                aria-label="Open embed copy menu"
+              />
+            }
+          >
+            <MoreVertical />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent
+            align="end"
+            className="w-56 shadow-none"
+          >
+            <DropdownMenuItem onClick={copyUrl}>
+              <Link2 />
+              Copy embed URL
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => copyCode(embed)}>
+              <Code2 />
+              Copy embed code
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={copyShortcode}>
+              <FileCode2 />
+              Copy WordPress shortcode
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+    </section>
+  );
+}
+
 export function CodePanel({ embed }: { embed: Embed }) {
   return (
     <section className="code-panel">
@@ -362,8 +563,8 @@ export function CodePanel({ embed }: { embed: Embed }) {
         onFocus={(e) => e.target.select()}
       />
       <p>
-        Uses your app’s /embed/{embed.id} route. Demo data is local to this
-        browser.
+        Uses your app’s /embed/{embed.id} route and stays available after you
+        sign out.
       </p>
     </section>
   );

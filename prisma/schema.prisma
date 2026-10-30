@@ -64,8 +64,12 @@ model Embed {
   // Appearance
   theme        EmbedTheme @default(LIGHT)
   fullWidth    Boolean    @default(true) @map("full_width")
+  width        Int        @default(640)
+  fullHeight   Boolean    @default(false) @map("full_height")
   height       Int        @default(700)
   border       Boolean    @default(false)
+  borderWidth  Int        @default(1) @map("border_width") @db.SmallInt
+  borderColor  String     @default("#e5e7eb") @map("border_color")
   borderRadius Int        @default(8) @map("border_radius")
 
   // Premium customization

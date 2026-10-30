@@ -5,10 +5,15 @@ export type Embed = {
   theme: "light" | "dark" | "system";
   height: number;
   fullWidth: boolean;
+  width: number;
+  fullHeight: boolean;
   border: boolean;
+  borderWidth: number;
+  borderColor: string;
   radius: number;
   active: boolean;
   createdAt: string;
+  updatedAt: string;
 };
 export type Workspace = {
   embeds: Embed[];
@@ -23,28 +28,51 @@ export type AuthenticatedProfile = Pick<
   Workspace,
   "name" | "email" | "avatarUrl" | "authProvider"
 >;
-export const initialWorkspace: Workspace = {
-  plan: "Free",
-  name: "Alex Morgan",
-  email: "alex@studio.design",
-  avatarUrl: null,
-  authProvider: null,
-  embeds: [
-    {
-      id: "studio-handbook",
-      title: "Studio handbook",
-      notionUrl: "https://studio.notion.site/handbook",
-      theme: "light",
-      height: 700,
-      fullWidth: true,
-      border: false,
-      radius: 8,
-      active: true,
-      createdAt: "2026-10-24T12:00:00Z",
-    },
-  ],
+
+type DatabaseEmbed = {
+  id: string;
+  title: string;
+  notionUrl: string;
+  theme: "LIGHT" | "DARK" | "SYSTEM";
+  height: number;
+  fullWidth: boolean;
+  width: number;
+  fullHeight: boolean;
+  border: boolean;
+  borderWidth: number;
+  borderColor: string;
+  borderRadius: number;
+  isActive: boolean;
+  createdAt: Date | string;
+  updatedAt: Date | string;
 };
-export const storageKey = "embedmynotion-demo-v1";
+
+export function serializeEmbed(embed: DatabaseEmbed): Embed {
+  return {
+    id: embed.id,
+    title: embed.title,
+    notionUrl: embed.notionUrl,
+    theme: embed.theme.toLowerCase() as Embed["theme"],
+    height: embed.height,
+    fullWidth: embed.fullWidth,
+    width: embed.width,
+    fullHeight: embed.fullHeight,
+    border: embed.border,
+    borderWidth: embed.borderWidth,
+    borderColor: embed.borderColor,
+    radius: embed.borderRadius,
+    active: embed.isActive,
+    createdAt:
+      embed.createdAt instanceof Date
+        ? embed.createdAt.toISOString()
+        : embed.createdAt,
+    updatedAt:
+      embed.updatedAt instanceof Date
+        ? embed.updatedAt.toISOString()
+        : embed.updatedAt,
+  };
+}
+
 export function validNotionUrl(value: string) {
   try {
     const url = new URL(value);
@@ -59,40 +87,6 @@ export function validNotionUrl(value: string) {
     return false;
   }
 }
-export function validWorkspace(value: unknown): value is Workspace {
-  if (!value || typeof value !== "object") return false;
-  const v = value as Workspace;
-  return (
-    ["Free", "Pro"].includes(v.plan) &&
-    typeof v.name === "string" &&
-    typeof v.email === "string" &&
-    (v.avatarUrl === undefined ||
-      v.avatarUrl === null ||
-      typeof v.avatarUrl === "string") &&
-    (v.authProvider === undefined ||
-      v.authProvider === null ||
-      typeof v.authProvider === "string") &&
-    Array.isArray(v.embeds) &&
-    v.embeds.every(
-      (e) =>
-        e &&
-        typeof e.id === "string" &&
-        typeof e.title === "string" &&
-        validNotionUrl(e.notionUrl) &&
-        ["light", "dark", "system"].includes(e.theme) &&
-        Number.isFinite(e.height) &&
-        e.height >= 200 &&
-        e.height <= 2000 &&
-        Number.isFinite(e.radius) &&
-        e.radius >= 0 &&
-        e.radius <= 32 &&
-        typeof e.active === "boolean" &&
-        typeof e.fullWidth === "boolean" &&
-        typeof e.border === "boolean" &&
-        typeof e.createdAt === "string",
-    )
-  );
-}
 export function embedCode(embed: Embed, origin: string) {
   const title = embed.title.replace(
     /[&<>"']/g,
@@ -101,5 +95,15 @@ export function embedCode(embed: Embed, origin: string) {
         c
       ]!,
   );
-  return `<iframe src="${origin}/embed/${encodeURIComponent(embed.id)}" title="${title}" width="${embed.fullWidth ? "100%" : "640"}" height="${embed.height}" style="border:${embed.border ? "1px solid #e5e7eb" : "0"};border-radius:${embed.radius}px;max-width:100%" loading="lazy"></iframe>`;
+  const width = embed.fullWidth ? "100%" : String(embed.width);
+  const height = embed.fullHeight ? "100%" : String(embed.height);
+  const frameStyle = [
+    `width:${embed.fullWidth ? "100%" : `${embed.width}px`}`,
+    `height:${embed.fullHeight ? "100vh" : `${embed.height}px`}`,
+    `border:${embed.border ? `${embed.borderWidth}px solid ${embed.borderColor}` : "0"}`,
+    `border-radius:${embed.radius}px`,
+    "max-width:100%",
+  ].join(";");
+
+  return `<iframe src="${origin}/embed/${encodeURIComponent(embed.id)}" title="${title}" width="${width}" height="${height}" style="${frameStyle}" loading="lazy"></iframe>`;
 }
