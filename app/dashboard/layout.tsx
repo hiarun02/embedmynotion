@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
 
@@ -12,6 +13,11 @@ import { hasProAccess } from "@/lib/subscription";
 import "./dashboard.css";
 
 export const instant = false;
+
+export const metadata: Metadata = {
+  title: "Dashboard",
+  robots: { index: false, follow: false, noarchive: true },
+};
 
 function stringMetadata(value: unknown) {
   return typeof value === "string" && value.trim() ? value.trim() : null;

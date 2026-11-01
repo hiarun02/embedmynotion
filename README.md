@@ -16,6 +16,11 @@ bun dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
+Copy `.env.example` to `.env.local` and set `SITE_URL` to the canonical
+production origin. It is used for canonical links, Open Graph metadata,
+`sitemap.xml`, `robots.txt`, `llms.txt`, and JSON-LD structured data. Vercel's
+production URL is used automatically when `SITE_URL` is not set.
+
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
