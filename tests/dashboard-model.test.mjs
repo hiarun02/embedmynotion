@@ -1,12 +1,27 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { embedCode, serializeEmbed, validNotionUrl } from "../lib/dashboard-model.ts";
+import {
+  embedCode,
+  formatEmbedUpdatedAt,
+  serializeEmbed,
+  validNotionUrl,
+} from "../lib/dashboard-model.ts";
 
 const embed = {
   id: "studio-handbook",
   title: "Studio handbook",
   notionUrl: "https://studio.notion.site/handbook",
   theme: "light",
+  font: "default",
+  customCssEnabled: false,
+  customCss: "",
+  showTopBar: false,
+  showCoverImage: true,
+  showPageHeader: true,
+  passwordProtected: false,
+  emailAccess: false,
+  allowedEmails: [],
+  hideWatermark: false,
   height: 700,
   fullWidth: true,
   width: 640,
@@ -24,6 +39,15 @@ test("accepts only HTTPS Notion page links", () => {
   for (const value of ["https://studio.notion.site/handbook", "https://www.notion.so/page"]) assert.equal(validNotionUrl(value), true);
   for (const value of ["javascript:alert(1)", "https://notion.site.evil.com/page", "https://evilnotion.so/page", "http://notion.so/page", "https://notion.so/", "https://user:pass@notion.so/page", "invalid"]) assert.equal(validNotionUrl(value), false);
 });
+
+test("formats embed timestamps consistently for server hydration", () => {
+  assert.equal(
+    formatEmbedUpdatedAt("2026-10-29T08:47:00Z"),
+    "Oct 29, 2026, 08:47 AM",
+  );
+  assert.equal(formatEmbedUpdatedAt(""), "Unsaved preview");
+});
+
 test("iframe points to the app route and applies frame customization", () => {
   const code = embedCode(
     {
@@ -57,6 +81,16 @@ test("serializes database embed fields for the dashboard", () => {
       title: embed.title,
       notionUrl: embed.notionUrl,
       theme: "DARK",
+      font: "SERIF",
+      customCssEnabled: true,
+      customCss: ".notion { color: red; }",
+      showTopBar: true,
+      showCoverImage: false,
+      showPageHeader: false,
+      passwordHash: "scrypt$test$hash",
+      emailAccess: true,
+      allowedEmails: ["team@example.com"],
+      hideWatermark: true,
       height: embed.height,
       fullWidth: embed.fullWidth,
       width: embed.width,
@@ -72,6 +106,16 @@ test("serializes database embed fields for the dashboard", () => {
     {
       ...embed,
       theme: "dark",
+      font: "serif",
+      customCssEnabled: true,
+      customCss: ".notion { color: red; }",
+      showTopBar: true,
+      showCoverImage: false,
+      showPageHeader: false,
+      passwordProtected: true,
+      emailAccess: true,
+      allowedEmails: ["team@example.com"],
+      hideWatermark: true,
       createdAt: "2026-10-24T12:00:00.000Z",
       updatedAt: "2026-10-29T08:47:00.000Z",
     },

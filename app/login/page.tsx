@@ -47,8 +47,16 @@ function GoogleIcon() {
 }
 
 type LoginPageProps = {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{
+    error?: string;
+    next?: string;
+    switch_account?: string;
+  }>;
 };
+
+function safeRedirectPath(value: string | undefined) {
+  return value && /^\/(?!\/)/.test(value) ? value : "/dashboard";
+}
 
 const errorMessages: Record<string, string> = {
   config_missing:
@@ -61,6 +69,7 @@ const errorMessages: Record<string, string> = {
 
 export default async function LoginPage({ searchParams }: LoginPageProps) {
   const params = await searchParams;
+  const next = safeRedirectPath(params.next);
   const configured = isSupabaseConfigured();
   let isSignedIn = false;
 
@@ -71,7 +80,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   }
 
   if (isSignedIn) {
-    redirect("/dashboard");
+    redirect(next);
   }
 
   const errorCode = configured ? params.error : "config_missing";
@@ -104,6 +113,10 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
 
           <CardContent className="px-8 pb-9 max-sm:px-6">
             <form action="/auth/google" method="post">
+              <input type="hidden" name="next" value={next} />
+              {params.switch_account === "1" ? (
+                <input type="hidden" name="switch_account" value="1" />
+              ) : null}
               <Button
                 type="submit"
                 variant="outline"

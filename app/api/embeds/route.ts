@@ -3,8 +3,15 @@ import { NextResponse } from "next/server";
 
 import { getAuthenticatedUser } from "@/lib/auth-user";
 import { serializeEmbed } from "@/lib/dashboard-model";
-import { databaseTheme, parseEmbedInput } from "@/lib/embed-input";
+import { hashEmbedPassword } from "@/lib/embed-access";
+import {
+  databaseFont,
+  databaseTheme,
+  parseEmbedInput,
+  usesPremiumFeatures,
+} from "@/lib/embed-input";
 import { prisma } from "@/lib/prisma";
+import { hasProAccess } from "@/lib/subscription";
 
 export async function POST(request: Request) {
   const user = await getAuthenticatedUser();
@@ -34,10 +41,22 @@ export async function POST(request: Request) {
     prisma.embed.count({ where: { userId: user.id } }),
     prisma.subscription.findUnique({ where: { userId: user.id } }),
   ]);
-  const hasProPlan =
-    subscription?.plan === "PRO" &&
-    (subscription.status === "ACTIVE" || subscription.status === "TRIALING");
+  const hasProPlan = hasProAccess(subscription);
   const limit = hasProPlan ? 25 : 1;
+
+  if (!hasProPlan && usesPremiumFeatures(input)) {
+    return NextResponse.json(
+      { message: "Upgrade to Pro to use appearance, layout, or security controls." },
+      { status: 403 },
+    );
+  }
+
+  if (input.passwordProtected && !input.password) {
+    return NextResponse.json(
+      { message: "Choose a password with at least 8 characters." },
+      { status: 400 },
+    );
+  }
 
   if (embedCount >= limit) {
     return NextResponse.json(
@@ -58,6 +77,17 @@ export async function POST(request: Request) {
         title: input.title,
         notionUrl: input.notionUrl,
         theme: databaseTheme(input.theme),
+        font: databaseFont(input.font),
+        customCssEnabled: input.customCssEnabled,
+        customCss: input.customCssEnabled ? input.customCss : null,
+        showTopBar: input.showTopBar,
+        showCoverImage: input.showCoverImage,
+        showPageHeader: input.showPageHeader,
+        passwordHash: input.passwordProtected
+          ? await hashEmbedPassword(input.password)
+          : null,
+        emailAccess: input.emailAccess,
+        allowedEmails: input.emailAccess ? input.allowedEmails : [],
         height: input.height,
         fullWidth: input.fullWidth,
         width: input.width,

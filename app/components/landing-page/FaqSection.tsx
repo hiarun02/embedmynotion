@@ -15,7 +15,7 @@ const faqs = [
 export function FaqSection() {
   return (
     <section className="faq-section section" id="faq">
-      <div className="site-container faq-layout">
+      <div className="site-frame section-frame faq-layout">
         <SectionIntro eyebrow="FAQ" title="Frequently asked questions" body="Straight answers about what embedmynotion does—and what it doesn't promise yet." />
         <Accordion defaultValue={["item-0"]} className="faq-list">
           {faqs.map(([question, answer], index) => (

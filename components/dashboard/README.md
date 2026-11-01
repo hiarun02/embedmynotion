@@ -12,7 +12,7 @@ Open `/dashboard` after signing in with Supabase Auth.
 - `/notion-preview` renders live content inside the editor preview frame.
 - `/embed/[id]` resolves an active database embed and renders its live Notion page.
 
-The Free plan allows one database-backed embed and Pro allows 25. No payment provider is connected yet. Advanced customization and watermark removal are labeled as planned, not enabled.
+The Free plan allows one database-backed embed and Pro allows 25. No payment provider is connected yet. Demo Pro access is persisted in the subscriptions table. Appearance, layout, and security controls are enabled for Pro; watermark removal remains planned.
 
 User records are synchronized during OAuth callback and dashboard loading. Profile changes and embed CRUD operations are persisted to PostgreSQL.
 

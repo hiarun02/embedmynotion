@@ -8,6 +8,7 @@ import { prisma } from "@/lib/prisma";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
 import { serializeEmbed } from "@/lib/dashboard-model";
+import { hasProAccess } from "@/lib/subscription";
 import "./dashboard.css";
 
 export const instant = false;
@@ -66,9 +67,7 @@ export default async function Layout({ children }: { children: React.ReactNode }
     prisma.subscription.findUnique({ where: { userId: user.id } }),
   ]);
 
-  const hasProPlan =
-    subscription?.plan === "PRO" &&
-    (subscription.status === "ACTIVE" || subscription.status === "TRIALING");
+  const hasProPlan = hasProAccess(subscription);
 
   return (
     <>

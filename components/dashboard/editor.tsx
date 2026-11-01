@@ -1,20 +1,33 @@
 "use client";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, type FormEvent } from "react";
+import { useState, type FormEvent, type ReactNode } from "react";
 import {
   Check,
   Code2,
   Copy,
+  Droplets,
+  ExternalLink,
   FileCode2,
+  FileImage,
+  Heading,
+  KeyRound,
+  LayoutPanelTop,
   Link2,
   Lock,
+  Mail,
   Maximize2,
+  Monitor,
+  Moon,
   MoreVertical,
   MoveHorizontal,
   MoveVertical,
+  Paintbrush,
   Save,
+  ShieldCheck,
   Square,
+  Sun,
+  Type,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -48,6 +61,15 @@ import { useWorkspace } from "./store";
 import { UpgradeDialog, copyCode } from "./dashboard";
 import { NotionFrame } from "./notion-frame";
 
+function parseAllowedEmails(value: string) {
+  return [...new Set(
+    value
+      .split(/[\n,]/)
+      .map((email) => email.trim().toLowerCase())
+      .filter(Boolean),
+  )];
+}
+
 export function EmbedEditor({ id }: { id?: string }) {
   const router = useRouter();
   const { workspace, update } = useWorkspace();
@@ -58,10 +80,20 @@ export function EmbedEditor({ id }: { id?: string }) {
       title: "",
       notionUrl: "",
       theme: "light",
+      font: "default",
+      customCssEnabled: false,
+      customCss: "",
+      showTopBar: false,
+      showCoverImage: true,
+      showPageHeader: true,
+      passwordProtected: false,
+      emailAccess: false,
+      allowedEmails: [],
+      hideWatermark: false,
       height: 700,
       fullWidth: true,
       width: 640,
-      fullHeight: false,
+      fullHeight: true,
       border: false,
       borderWidth: 1,
       borderColor: "#e5e7eb",
@@ -75,8 +107,20 @@ export function EmbedEditor({ id }: { id?: string }) {
   const [upgrade, setUpgrade] = useState(false);
   const [created, setCreated] = useState<Embed | null>(null);
   const [saving, setSaving] = useState(false);
+  const [password, setPassword] = useState("");
+  const [allowedEmailText, setAllowedEmailText] = useState(
+    existing?.allowedEmails.join("\n") ?? "",
+  );
   function change<K extends keyof Embed>(key: K, value: Embed[K]) {
     setDraft((d) => ({ ...d, [key]: value }));
+  }
+  function requirePro() {
+    if (workspace.plan === "Pro") return true;
+    setUpgrade(true);
+    return false;
+  }
+  function changePro<K extends keyof Embed>(key: K, value: Embed[K]) {
+    if (requirePro()) change(key, value);
   }
   async function save(event: FormEvent) {
     event.preventDefault();
@@ -104,6 +148,21 @@ export function EmbedEditor({ id }: { id?: string }) {
       return setError(
         "Use a width of 320–1920px, height of 200–2000px, radius of 0–64px, border width of 1–12px, and a valid hex color.",
       );
+    const allowedEmails = parseAllowedEmails(allowedEmailText);
+    if (
+      draft.passwordProtected &&
+      !password &&
+      !existing?.passwordProtected &&
+      !created?.passwordProtected
+    ) {
+      return setError("Choose a password with at least 8 characters.");
+    }
+    if (password && (password.length < 8 || password.length > 72)) {
+      return setError("Use a password between 8 and 72 characters.");
+    }
+    if (draft.emailAccess && allowedEmails.length === 0) {
+      return setError("Add at least one email address with access.");
+    }
     if (
       !id &&
       !created &&
@@ -120,7 +179,7 @@ export function EmbedEditor({ id }: { id?: string }) {
         {
           method: targetId ? "PATCH" : "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(draft),
+          body: JSON.stringify({ ...draft, allowedEmails, password }),
         },
       );
       const result = (await response.json()) as {
@@ -141,6 +200,8 @@ export function EmbedEditor({ id }: { id?: string }) {
           : [saved, ...workspace.embeds],
       });
       setDraft(saved);
+      setPassword("");
+      setAllowedEmailText(saved.allowedEmails.join("\n"));
       toast.success(targetId ? "Changes saved" : "Your embed is ready");
       if (!id) setCreated(saved);
     } catch (saveError) {
@@ -217,7 +278,6 @@ export function EmbedEditor({ id }: { id?: string }) {
                   </small>
                 </div>
               </section>
-              <div className="panel-divider" />
               <div className="editor-section-title">
                 <span aria-hidden="true">
                   <Maximize2 />
@@ -360,32 +420,213 @@ export function EmbedEditor({ id }: { id?: string }) {
                   </div>
                 </div>
               </div>
-              <div className="panel-divider" />
-              <h3>Appearance</h3>
-              <div className="field">
-                <Label htmlFor="embed-theme">Theme</Label>
-                <Select
-                  value={draft.theme}
-                  onValueChange={(value) => {
-                    if (
-                      value === "light" ||
-                      value === "dark" ||
-                      value === "system"
-                    )
-                      change("theme", value);
-                  }}
-                >
-                  <SelectTrigger id="embed-theme" className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="light">Light</SelectItem>
-                    <SelectItem value="dark">Dark</SelectItem>
-                    <SelectItem value="system">System</SelectItem>
-                  </SelectContent>
-                </Select>
+              <div className="feature-section-heading">
+                <span className="feature-section-icon" aria-hidden="true">
+                  <Droplets />
+                </span>
+                <h3>Appearance</h3>
+                <span className="feature-pro-badge">Pro</span>
               </div>
-              <div className="panel-divider" />
+              <div className="feature-settings-card">
+                <div className="feature-setting-row theme-setting-row">
+                  <div className="feature-setting-label">
+                    <Moon aria-hidden="true" />
+                    <Label>Theme</Label>
+                  </div>
+                  <div className="theme-mode-picker" aria-label="Embed theme">
+                    <button
+                      type="button"
+                      className={draft.theme === "light" ? "selected" : ""}
+                      onClick={() => change("theme", "light")}
+                      aria-label="Use light theme"
+                      aria-pressed={draft.theme === "light"}
+                    >
+                      <Sun />
+                    </button>
+                    <button
+                      type="button"
+                      className={draft.theme === "dark" ? "selected" : ""}
+                      onClick={() => change("theme", "dark")}
+                      aria-label="Use dark theme"
+                      aria-pressed={draft.theme === "dark"}
+                    >
+                      <Moon />
+                    </button>
+                    <button
+                      type="button"
+                      className={draft.theme === "system" ? "selected" : ""}
+                      onClick={() => change("theme", "system")}
+                      aria-label="Match system theme"
+                      aria-pressed={draft.theme === "system"}
+                    >
+                      <Monitor />
+                    </button>
+                  </div>
+                </div>
+                <div className="feature-setting-row">
+                  <div className="feature-setting-label">
+                    <Type aria-hidden="true" />
+                    <Label htmlFor="embed-font">Font</Label>
+                  </div>
+                  <Select
+                    value={draft.font}
+                    onValueChange={(value) => {
+                      if (
+                        value === "default" ||
+                        value === "sans" ||
+                        value === "serif" ||
+                        value === "mono"
+                      )
+                        changePro("font", value);
+                    }}
+                  >
+                    <SelectTrigger id="embed-font" className="feature-select">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="default">Default</SelectItem>
+                      <SelectItem value="sans">Sans</SelectItem>
+                      <SelectItem value="serif">Serif</SelectItem>
+                      <SelectItem value="mono">Mono</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="feature-setting-row">
+                  <div className="feature-setting-label">
+                    <Paintbrush aria-hidden="true" />
+                    <Label htmlFor="custom-css-enabled">Custom CSS</Label>
+                  </div>
+                  <Switch
+                    id="custom-css-enabled"
+                    checked={draft.customCssEnabled}
+                    onCheckedChange={(value) =>
+                      changePro("customCssEnabled", value)
+                    }
+                  />
+                </div>
+                {draft.customCssEnabled ? (
+                  <div className="feature-expanded-field">
+                    <Label htmlFor="custom-css">CSS</Label>
+                    <textarea
+                      id="custom-css"
+                      value={draft.customCss}
+                      onChange={(event) => change("customCss", event.target.value)}
+                      maxLength={4000}
+                      rows={6}
+                      spellCheck={false}
+                      placeholder={".notion-page {\n  max-width: 900px;\n}"}
+                    />
+                    <small>Applied inside this embed only. Up to 4,000 characters.</small>
+                  </div>
+                ) : null}
+              </div>
+
+              <div className="feature-section-heading">
+                <span className="feature-section-icon" aria-hidden="true">
+                  <LayoutPanelTop />
+                </span>
+                <h3>Layout</h3>
+                <span className="feature-pro-badge">Pro</span>
+              </div>
+              <div className="feature-settings-card">
+                <FeatureSwitchRow
+                  id="show-top-bar"
+                  icon={<LayoutPanelTop />}
+                  label="Show top bar"
+                  checked={draft.showTopBar}
+                  onCheckedChange={(value) => changePro("showTopBar", value)}
+                />
+                <FeatureSwitchRow
+                  id="show-cover-image"
+                  icon={<FileImage />}
+                  label="Show cover image"
+                  checked={draft.showCoverImage}
+                  onCheckedChange={(value) => changePro("showCoverImage", value)}
+                />
+                <FeatureSwitchRow
+                  id="show-page-header"
+                  icon={<Heading />}
+                  label="Show page header"
+                  checked={draft.showPageHeader}
+                  onCheckedChange={(value) => changePro("showPageHeader", value)}
+                />
+              </div>
+
+              <div className="feature-section-heading">
+                <span className="feature-section-icon" aria-hidden="true">
+                  <ShieldCheck />
+                </span>
+                <h3>Security</h3>
+                <span className="feature-pro-badge">Pro</span>
+              </div>
+              <div className="feature-settings-card">
+                <FeatureSwitchRow
+                  id="password-protection"
+                  icon={<KeyRound />}
+                  label="Password protection"
+                  checked={draft.passwordProtected}
+                  onCheckedChange={(value) => {
+                    if (!requirePro()) return;
+                    change("passwordProtected", value);
+                    if (!value) setPassword("");
+                  }}
+                />
+                {draft.passwordProtected ? (
+                  <div className="feature-expanded-field">
+                    <Label htmlFor="embed-password-setting">Password</Label>
+                    <Input
+                      id="embed-password-setting"
+                      type="password"
+                      value={password}
+                      minLength={8}
+                      maxLength={72}
+                      autoComplete="new-password"
+                      onChange={(event) => setPassword(event.target.value)}
+                      placeholder={existing?.passwordProtected ? "Leave blank to keep current password" : "At least 8 characters"}
+                    />
+                    <small>
+                      The editor preview stays unlocked. Save your changes, then
+                      test the public embed in a private browser window.
+                    </small>
+                    {id || created?.id ? (
+                      <Link
+                        className="security-test-link"
+                        href={`/embed/${id ?? created?.id}`}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        Open public embed
+                        <ExternalLink aria-hidden="true" />
+                      </Link>
+                    ) : null}
+                  </div>
+                ) : null}
+                <FeatureSwitchRow
+                  id="email-access"
+                  icon={<Mail />}
+                  label="Email access"
+                  checked={draft.emailAccess}
+                  onCheckedChange={(value) => {
+                    if (!requirePro()) return;
+                    change("emailAccess", value);
+                  }}
+                />
+                {draft.emailAccess ? (
+                  <div className="feature-expanded-field">
+                    <Label htmlFor="allowed-emails">Allowed emails</Label>
+                    <textarea
+                      id="allowed-emails"
+                      value={allowedEmailText}
+                      onChange={(event) => setAllowedEmailText(event.target.value)}
+                      rows={4}
+                      placeholder={"alex@example.com\nteam@example.com"}
+                      spellCheck={false}
+                    />
+                    <small>One email per line. Visitors must sign in with Google.</small>
+                  </div>
+                ) : null}
+              </div>
+
               <div className="switch-field active-embed-switch">
                 <div>
                   <Label htmlFor="active">Active embed</Label>
@@ -475,6 +716,34 @@ export function EmbedEditor({ id }: { id?: string }) {
           )}
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+function FeatureSwitchRow({
+  id,
+  icon,
+  label,
+  checked,
+  onCheckedChange,
+}: {
+  id: string;
+  icon: ReactNode;
+  label: string;
+  checked: boolean;
+  onCheckedChange: (value: boolean) => void;
+}) {
+  return (
+    <div className="feature-setting-row">
+      <div className="feature-setting-label">
+        <span aria-hidden="true">{icon}</span>
+        <Label htmlFor={id}>{label}</Label>
+      </div>
+      <Switch
+        id={id}
+        checked={checked}
+        onCheckedChange={onCheckedChange}
+      />
     </div>
   );
 }

@@ -78,6 +78,7 @@ import {
   TableCell,
 } from "@/components/ui/table";
 import { embedCode, type Embed } from "@/lib/dashboard-model";
+import { setDemoPlan } from "@/lib/demo-plan";
 import { useWorkspace } from "./store";
 import { NotionFrame } from "./notion-frame";
 import { Logo } from "@/app/components/Logo";
@@ -811,6 +812,23 @@ export function UpgradeDialog({
 }) {
   const { workspace, update } = useWorkspace();
   const [yearly, setYearly] = useState(false);
+  const [savingPlan, setSavingPlan] = useState(false);
+
+  async function enableDemoPro() {
+    setSavingPlan(true);
+    try {
+      const plan = await setDemoPlan("Pro", yearly ? "yearly" : "monthly");
+      update({ ...workspace, plan });
+      onOpenChange(false);
+      toast.success("Pro demo enabled for this account.");
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Pro demo could not be enabled.",
+      );
+    } finally {
+      setSavingPlan(false);
+    }
+  }
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
@@ -845,7 +863,8 @@ export function UpgradeDialog({
         <div className="space-y-3 text-sm">
           {[
             "25 customizable embeds",
-            "Advanced customization — planned",
+            "Appearance and layout controls",
+            "Password and email access",
             "Remove watermark — planned",
           ].map((t) => (
             <p key={t} className="flex gap-3">
@@ -857,18 +876,14 @@ export function UpgradeDialog({
         <Button
           size="lg"
           className="dashboard-primary-button mt-3"
-          onClick={() => {
-            update({ ...workspace, plan: "Pro" });
-            onOpenChange(false);
-            toast.success(
-              "Pro demo enabled. No charge or subscription created.",
-            );
-          }}
+          disabled={savingPlan}
+          onClick={enableDemoPro}
         >
-          Try Pro in this demo <ArrowRight size={15} />
+          {savingPlan ? "Enabling Pro…" : "Try Pro in this demo"}
+          {!savingPlan && <ArrowRight size={15} />}
         </Button>
         <p className="text-xs text-center text-muted-foreground">
-          Preview only. Payments are not connected.
+          Demo access is saved to this account. Payments are not connected.
         </p>
       </DialogContent>
     </Dialog>

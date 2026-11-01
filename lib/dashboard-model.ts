@@ -3,6 +3,16 @@ export type Embed = {
   title: string;
   notionUrl: string;
   theme: "light" | "dark" | "system";
+  font: "default" | "sans" | "serif" | "mono";
+  customCssEnabled: boolean;
+  customCss: string;
+  showTopBar: boolean;
+  showCoverImage: boolean;
+  showPageHeader: boolean;
+  passwordProtected: boolean;
+  emailAccess: boolean;
+  allowedEmails: string[];
+  hideWatermark: boolean;
   height: number;
   fullWidth: boolean;
   width: number;
@@ -34,6 +44,16 @@ type DatabaseEmbed = {
   title: string;
   notionUrl: string;
   theme: "LIGHT" | "DARK" | "SYSTEM";
+  font: "DEFAULT" | "SANS" | "SERIF" | "MONO";
+  customCssEnabled: boolean;
+  customCss: string | null;
+  showTopBar: boolean;
+  showCoverImage: boolean;
+  showPageHeader: boolean;
+  passwordHash: string | null;
+  emailAccess: boolean;
+  allowedEmails: string[];
+  hideWatermark: boolean;
   height: number;
   fullWidth: boolean;
   width: number;
@@ -53,6 +73,16 @@ export function serializeEmbed(embed: DatabaseEmbed): Embed {
     title: embed.title,
     notionUrl: embed.notionUrl,
     theme: embed.theme.toLowerCase() as Embed["theme"],
+    font: embed.font.toLowerCase() as Embed["font"],
+    customCssEnabled: embed.customCssEnabled,
+    customCss: embed.customCss ?? "",
+    showTopBar: embed.showTopBar,
+    showCoverImage: embed.showCoverImage,
+    showPageHeader: embed.showPageHeader,
+    passwordProtected: Boolean(embed.passwordHash),
+    emailAccess: embed.emailAccess,
+    allowedEmails: embed.allowedEmails,
+    hideWatermark: embed.hideWatermark,
     height: embed.height,
     fullWidth: embed.fullWidth,
     width: embed.width,
@@ -87,6 +117,25 @@ export function validNotionUrl(value: string) {
     return false;
   }
 }
+
+export function formatEmbedUpdatedAt(value: string) {
+  const updatedAt = value ? new Date(value) : null;
+
+  if (!updatedAt || Number.isNaN(updatedAt.getTime())) {
+    return "Unsaved preview";
+  }
+
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+    timeZone: "UTC",
+  }).format(updatedAt);
+}
+
 export function embedCode(embed: Embed, origin: string) {
   const title = embed.title.replace(
     /[&<>"']/g,

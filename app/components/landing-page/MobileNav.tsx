@@ -15,10 +15,11 @@ import {
 } from "@/components/ui/sheet";
 
 const links = [
-  ["Features", "#features"],
-  ["How it works", "#how-it-works"],
-  ["Pricing", "#pricing"],
-  ["FAQ", "#faq"],
+  ["Features", "/#features"],
+  ["How it works", "/#how-it-works"],
+  ["Pricing", "/#pricing"],
+  ["Blog", "/blog"],
+  ["FAQ", "/#faq"],
 ];
 
 export function MobileNav({ isAuthenticated }: { isAuthenticated: boolean }) {
@@ -34,7 +35,7 @@ export function MobileNav({ isAuthenticated }: { isAuthenticated: boolean }) {
         </SheetHeader>
         <nav className="mt-7 grid border-t border-border [&_a]:border-b [&_a]:border-border [&_a]:px-0.5 [&_a]:py-4.25 [&_a]:font-semibold" aria-label="Mobile navigation">
           {links.map(([label, href]) => (
-            <SheetClose key={href} render={<a href={href} />}>{label}</SheetClose>
+            <SheetClose key={href} render={<Link href={href} />}>{label}</SheetClose>
           ))}
         </nav>
         <div className="mt-auto grid gap-2.5">
