@@ -1,8 +1,14 @@
+import type { Metadata } from "next";
 import { Suspense } from "react";
 
 import { NotionPage } from "@/components/notion/notion-page";
 import { loadNotionPage } from "@/lib/notion";
 import type { Embed } from "@/lib/dashboard-model";
+
+export const metadata: Metadata = {
+  title: "Notion embed preview",
+  robots: { index: false, follow: false, noarchive: true },
+};
 
 function previewTheme(value: string | string[] | undefined): Embed["theme"] {
   return value === "dark" || value === "system" ? value : "light";

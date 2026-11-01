@@ -1,13 +1,36 @@
-import { ArrowRight, BookOpen, Clock3 } from "lucide-react";
+import { BookOpen } from "lucide-react";
 import Link from "next/link";
 
+import { JsonLd } from "@/components/seo/json-ld";
 import { blogPosts } from "@/lib/blog";
-
-const [featuredPost, ...morePosts] = blogPosts;
+import { absoluteUrl, siteConfig } from "@/lib/site-config";
 
 export default function BlogPage() {
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Blog",
+    name: "EmbedMyNotion Journal",
+    description:
+      "Practical guides for responsive Notion embeds, secure sharing, layout customization, and web publishing.",
+    url: absoluteUrl("/blog"),
+    publisher: {
+      "@type": "Organization",
+      name: siteConfig.name,
+      url: absoluteUrl("/"),
+    },
+    blogPost: blogPosts.map((post) => ({
+      "@type": "BlogPosting",
+      headline: post.title,
+      description: post.excerpt,
+      datePublished: post.publishedAtIso,
+      dateModified: post.updatedAtIso,
+      url: absoluteUrl(`/blog/${post.slug}`),
+    })),
+  };
+
   return (
     <main className="blog-page" id="top">
+      <JsonLd data={jsonLd} />
       <section className="site-frame blog-hero">
         <span className="blog-eyebrow"><BookOpen /> EMBEDMYNOTION JOURNAL</span>
         <h1>Notes on bringing Notion to the web.</h1>
@@ -16,40 +39,14 @@ export default function BlogPage() {
 
       <section className="blog-index-section">
         <div className="site-frame blog-index-frame">
-          <div className="blog-section-heading">
-            <div><span>FEATURED GUIDE</span><h2>Start with the essentials.</h2></div>
-            <p>Useful details for publishing your first page and improving the next one.</p>
-          </div>
-
-          <Link className="featured-post" href={`/blog/${featuredPost.slug}`}>
-            <div className="featured-post-copy">
-              <div className="post-meta"><span>{featuredPost.category}</span><i />{featuredPost.publishedAt}<i /><Clock3 />{featuredPost.readTime}</div>
-              <h2>{featuredPost.title}</h2>
-              <p>{featuredPost.excerpt}</p>
-              <span className="read-link">Read the guide <ArrowRight /></span>
-            </div>
-            <div className="featured-post-art" aria-hidden="true">
-              <span className="art-window-bar"><i /><i /><i /></span>
-              <div className="art-document">
-                <b>N</b><span /><span /><span /><span />
-              </div>
-              <div className="art-code">&lt;iframe /&gt;</div>
-            </div>
-          </Link>
-
-          <div className="blog-section-heading latest-heading">
-            <div><span>LATEST</span><h2>More from the journal.</h2></div>
-          </div>
-
-          <div className="post-grid">
-            {morePosts.map((post, index) => (
-              <Link className={`post-card accent-${post.accent}`} href={`/blog/${post.slug}`} key={post.slug}>
-                <div className="post-card-top"><span>0{index + 2}</span><ArrowRight /></div>
-                <div className="post-card-body">
-                  <div className="post-meta"><span>{post.category}</span><i />{post.readTime}</div>
-                  <h3>{post.title}</h3>
-                  <p>{post.excerpt}</p>
-                </div>
+          <div className="blog-list">
+            {blogPosts.map((post) => (
+              <Link className="blog-list-item" href={`/blog/${post.slug}`} key={post.slug}>
+                <article>
+                  <h2>{post.title}</h2>
+                  <p className="blog-list-author">EmbedMyNotion Team</p>
+                  <p className="blog-list-description">{post.excerpt}</p>
+                </article>
               </Link>
             ))}
           </div>

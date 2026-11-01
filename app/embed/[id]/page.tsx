@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { Suspense } from "react";
 import Link from "next/link";
 import { cookies } from "next/headers";
@@ -12,6 +13,11 @@ import { prisma } from "@/lib/prisma";
 import { serializeEmbed } from "@/lib/dashboard-model";
 import { loadNotionPage } from "@/lib/notion";
 import "@/app/dashboard/dashboard.css";
+
+export const metadata: Metadata = {
+  title: "Shared Notion embed",
+  robots: { index: false, follow: false, noarchive: true },
+};
 
 async function loadPublicPage(notionUrl: string) {
   try {

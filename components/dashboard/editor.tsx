@@ -425,7 +425,9 @@ export function EmbedEditor({ id }: { id?: string }) {
                   <Droplets />
                 </span>
                 <h3>Appearance</h3>
-                <span className="feature-pro-badge">Pro</span>
+                {workspace.plan === "Free" ? (
+                  <span className="feature-pro-badge">Pro</span>
+                ) : null}
               </div>
               <div className="feature-settings-card">
                 <div className="feature-setting-row theme-setting-row">
@@ -526,7 +528,9 @@ export function EmbedEditor({ id }: { id?: string }) {
                   <LayoutPanelTop />
                 </span>
                 <h3>Layout</h3>
-                <span className="feature-pro-badge">Pro</span>
+                {workspace.plan === "Free" ? (
+                  <span className="feature-pro-badge">Pro</span>
+                ) : null}
               </div>
               <div className="feature-settings-card">
                 <FeatureSwitchRow
@@ -557,7 +561,9 @@ export function EmbedEditor({ id }: { id?: string }) {
                   <ShieldCheck />
                 </span>
                 <h3>Security</h3>
-                <span className="feature-pro-badge">Pro</span>
+                {workspace.plan === "Free" ? (
+                  <span className="feature-pro-badge">Pro</span>
+                ) : null}
               </div>
               <div className="feature-settings-card">
                 <FeatureSwitchRow

@@ -15,8 +15,9 @@ import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = {
-  title: "Sign in | Embed My Notion",
+  title: "Sign in",
   description: "Sign in to create and manage your Notion embeds.",
+  robots: { index: false, follow: false, noarchive: true },
 };
 
 // Session cookies are request-time data, so this route intentionally blocks
