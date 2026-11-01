@@ -4,7 +4,6 @@ import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 
-import { Button } from "@/components/ui/button";
 import { MobileNav } from "./MobileNav";
 
 export function Header({
@@ -39,30 +38,22 @@ export function Header({
 
   return (
     <header
-      className={`sticky top-0 z-40 border-b bg-white transition-[border-color,background-color] duration-220 dark:bg-[#080808] ${isScrolled
-        ? "border-black/8 dark:border-white/12"
-        : "border-transparent shadow-none"
-        }`}
+      className={`landing-header ${isScrolled ? "is-scrolled" : ""}`}
     >
-      <div className="mx-auto flex h-17 w-[min(1200px,calc(100%-48px))] items-center gap-8.5 max-[760px]:h-15.5 max-[760px]:w-[min(600px,calc(100%-32px))]">
-        <a href="#top" aria-label="embedmynotion home">{children}</a>
-        <div className="ml-auto flex flex-nowrap items-center justify-end gap-8.5 whitespace-nowrap max-[760px]:hidden">
-          <nav className="flex flex-nowrap items-center gap-7.5 [&_a]:text-[13px] [&_a]:font-medium [&_a]:text-[#565656] [&_a:hover]:text-[#e94b12] dark:[&_a]:text-[#a5a5a5] dark:[&_a:hover]:text-[#ff7a45]" aria-label="Primary navigation">
-            <a href="#features">Features</a>
-            <a href="#how-it-works">How it works</a>
-            <a href="#pricing">Pricing</a>
-            <a href="#faq">FAQ</a>
+      <div className="landing-header-inner">
+        <Link href="/" aria-label="EmbedMyNotion home">{children}</Link>
+        <div className="desktop-navigation">
+          <nav aria-label="Primary navigation">
+            <Link href="/#features">Features</Link>
+            <Link href="/#how-it-works">How it works</Link>
+            <Link href="/#pricing">Pricing</Link>
+            <Link href="/blog">Blog</Link>
+            <Link href="/#faq">FAQ</Link>
           </nav>
-          <div className="flex shrink-0 items-center gap-5">
-            <Button
-              render={
-                <Link href={isAuthenticated ? "/dashboard" : "/login"} />
-              }
-              nativeButton={false}
-              className="h-9 rounded-[7px] px-4"
-            >
+          <div className="header-actions">
+            <Link className="orange-button orange-button-small" href={isAuthenticated ? "/dashboard" : "/login"}>
               {isAuthenticated ? "Dashboard" : "Get started free"}
-            </Button>
+            </Link>
           </div>
         </div>
         <MobileNav isAuthenticated={isAuthenticated} />

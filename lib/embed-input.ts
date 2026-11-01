@@ -5,6 +5,15 @@ export type EmbedInput = Pick<
   | "title"
   | "notionUrl"
   | "theme"
+  | "font"
+  | "customCssEnabled"
+  | "customCss"
+  | "showTopBar"
+  | "showCoverImage"
+  | "showPageHeader"
+  | "passwordProtected"
+  | "emailAccess"
+  | "allowedEmails"
   | "height"
   | "fullWidth"
   | "width"
@@ -14,7 +23,9 @@ export type EmbedInput = Pick<
   | "borderColor"
   | "radius"
   | "active"
->;
+> & { password: string };
+
+const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function parseEmbedInput(value: unknown): EmbedInput | null {
   if (!value || typeof value !== "object") return null;
@@ -22,6 +33,16 @@ export function parseEmbedInput(value: unknown): EmbedInput | null {
   const title = typeof input.title === "string" ? input.title.trim() : "";
   const notionUrl =
     typeof input.notionUrl === "string" ? input.notionUrl.trim() : "";
+  const customCss =
+    typeof input.customCss === "string" ? input.customCss.trim() : "";
+  const password =
+    typeof input.password === "string" ? input.password : "";
+  const allowedEmails = Array.isArray(input.allowedEmails)
+    ? [...new Set(input.allowedEmails
+      .filter((email): email is string => typeof email === "string")
+      .map((email) => email.trim().toLowerCase())
+      .filter(Boolean))]
+    : [];
 
   if (
     title.length < 1 ||
@@ -30,6 +51,23 @@ export function parseEmbedInput(value: unknown): EmbedInput | null {
     (input.theme !== "light" &&
       input.theme !== "dark" &&
       input.theme !== "system") ||
+    (input.font !== "default" &&
+      input.font !== "sans" &&
+      input.font !== "serif" &&
+      input.font !== "mono") ||
+    typeof input.customCssEnabled !== "boolean" ||
+    customCss.length > 4000 ||
+    /<\/style/i.test(customCss) ||
+    typeof input.showTopBar !== "boolean" ||
+    typeof input.showCoverImage !== "boolean" ||
+    typeof input.showPageHeader !== "boolean" ||
+    typeof input.passwordProtected !== "boolean" ||
+    password.length > 72 ||
+    (password.length > 0 && password.length < 8) ||
+    typeof input.emailAccess !== "boolean" ||
+    allowedEmails.length > 50 ||
+    allowedEmails.some((email) => !emailPattern.test(email)) ||
+    (input.emailAccess === true && allowedEmails.length === 0) ||
     !Number.isInteger(input.height) ||
     (input.height as number) < 200 ||
     (input.height as number) > 2000 ||
@@ -56,6 +94,16 @@ export function parseEmbedInput(value: unknown): EmbedInput | null {
     title,
     notionUrl,
     theme: input.theme,
+    font: input.font,
+    customCssEnabled: input.customCssEnabled,
+    customCss,
+    showTopBar: input.showTopBar,
+    showCoverImage: input.showCoverImage,
+    showPageHeader: input.showPageHeader,
+    passwordProtected: input.passwordProtected,
+    password,
+    emailAccess: input.emailAccess,
+    allowedEmails,
     height: input.height as number,
     fullWidth: input.fullWidth,
     width: input.width as number,
@@ -66,6 +114,25 @@ export function parseEmbedInput(value: unknown): EmbedInput | null {
     radius: input.radius as number,
     active: input.active,
   };
+}
+
+export function databaseFont(font: EmbedInput["font"]) {
+  if (font === "sans") return "SANS" as const;
+  if (font === "serif") return "SERIF" as const;
+  if (font === "mono") return "MONO" as const;
+  return "DEFAULT" as const;
+}
+
+export function usesPremiumFeatures(input: EmbedInput) {
+  return (
+    input.font !== "default" ||
+    input.customCssEnabled ||
+    input.showTopBar ||
+    !input.showCoverImage ||
+    !input.showPageHeader ||
+    input.passwordProtected ||
+    input.emailAccess
+  );
 }
 
 export function databaseTheme(theme: EmbedInput["theme"]) {

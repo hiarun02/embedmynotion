@@ -13,9 +13,23 @@ import type { Embed } from "@/lib/dashboard-model";
 export function NotionPage({
   recordMap,
   theme,
+  font = "default",
+  customCss = "",
+  customCssEnabled = false,
+  showTopBar = false,
+  showCoverImage = true,
+  showPageHeader = true,
+  hideWatermark = false,
 }: {
   recordMap: ExtendedRecordMap;
   theme: Embed["theme"];
+  font?: Embed["font"];
+  customCss?: string;
+  customCssEnabled?: boolean;
+  showTopBar?: boolean;
+  showCoverImage?: boolean;
+  showPageHeader?: boolean;
+  hideWatermark?: boolean;
 }) {
   const [systemDark, setSystemDark] = useState(false);
 
@@ -28,6 +42,14 @@ export function NotionPage({
   }, []);
 
   const darkMode = theme === "dark" || (theme === "system" && systemDark);
+  const fontFamily =
+    font === "sans"
+      ? "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+      : font === "serif"
+        ? "Georgia, 'Times New Roman', serif"
+        : font === "mono"
+          ? "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace"
+          : "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
 
   return (
     <>
@@ -42,29 +64,60 @@ export function NotionPage({
           width: 0 !important;
           height: 0 !important;
         }
+        .notion {
+          font-family: ${fontFamily} !important;
+        }
+        .embed-hide-cover .notion-page-cover-wrapper {
+          display: none !important;
+        }
+        .embed-hide-cover .notion-page-has-cover {
+          margin-top: 48px !important;
+          padding-top: 96px;
+        }
+        .embed-hide-cover .notion-page-has-cover.notion-page-no-icon {
+          padding-top: 0;
+        }
+        .embed-hide-cover .notion-page-icon-hero {
+          top: 0 !important;
+        }
+        .embed-hide-page-header .notion-title,
+        .embed-hide-page-header .notion-page-icon-hero {
+          display: none !important;
+        }
+        .embed-hide-page-header .notion-page {
+          padding-top: 48px !important;
+        }
+        .embed-hide-page-header.embed-hide-cover .notion-page {
+          padding-top: 0 !important;
+        }
+        ${customCssEnabled ? customCss : ""}
       `}</style>
-      <div className="notion-render-shell">
+      <div
+        className={`notion-render-shell${showCoverImage ? "" : " embed-hide-cover"}${showPageHeader ? "" : " embed-hide-page-header"}`}
+      >
         <NotionRenderer
           recordMap={recordMap}
           fullPage
           darkMode={darkMode}
-          disableHeader
+          disableHeader={!showTopBar}
           previewImages
           components={{ Code, Collection, Equation }}
           mapPageUrl={(pageId) => `https://www.notion.so/${pageId}`}
         />
-        <a
-          className={`notion-brand-watermark${darkMode ? " dark" : ""}`}
-          href="/"
-          target="_blank"
-          rel="noreferrer"
-          aria-label="Made in EmbedMyNotion"
-        >
-          <span aria-hidden="true">
-            <Image src="/icon.svg" alt="" width={24} height={24} />
-          </span>
-          Made in EmbedMyNotion
-        </a>
+        {!hideWatermark ? (
+          <a
+            className={`notion-brand-watermark${darkMode ? " dark" : ""}`}
+            href="/"
+            target="_blank"
+            rel="noreferrer"
+            aria-label="Made in EmbedMyNotion"
+          >
+            <span aria-hidden="true">
+              <Image src="/icon.svg" alt="" width={24} height={24} />
+            </span>
+            Made in EmbedMyNotion
+          </a>
+        ) : null}
       </div>
     </>
   );

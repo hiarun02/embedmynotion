@@ -3,7 +3,11 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, Clock3, FileText, Link2 } from "lucide-react";
 
-import { validNotionUrl, type Embed } from "@/lib/dashboard-model";
+import {
+  formatEmbedUpdatedAt,
+  validNotionUrl,
+  type Embed,
+} from "@/lib/dashboard-model";
 
 export function NotionFrame({ embed }: { embed: Embed }) {
   const [notionUrl, setNotionUrl] = useState(embed.notionUrl);
@@ -65,7 +69,17 @@ export function NotionFrame({ embed }: { embed: Embed }) {
       window.cancelAnimationFrame(animationFrame);
       observer?.disconnect();
     };
-  }, [embed.fullHeight, notionUrl, embed.theme]);
+  }, [
+    embed.fullHeight,
+    notionUrl,
+    embed.theme,
+    embed.font,
+    embed.customCss,
+    embed.customCssEnabled,
+    embed.showTopBar,
+    embed.showCoverImage,
+    embed.showPageHeader,
+  ]);
 
   if (!validNotionUrl(notionUrl)) {
     return (
@@ -78,20 +92,16 @@ export function NotionFrame({ embed }: { embed: Embed }) {
   const params = new URLSearchParams({
     url: notionUrl,
     theme: embed.theme,
+    font: embed.font,
+    customCss: embed.customCssEnabled ? embed.customCss : "",
+    customCssEnabled: embed.customCssEnabled ? "1" : "0",
+    showTopBar: embed.showTopBar ? "1" : "0",
+    showCoverImage: embed.showCoverImage ? "1" : "0",
+    showPageHeader: embed.showPageHeader ? "1" : "0",
     fullHeight: embed.fullHeight ? "1" : "0",
   });
 
-  const updatedAt = embed.updatedAt ? new Date(embed.updatedAt) : null;
-  const updatedLabel =
-    updatedAt && !Number.isNaN(updatedAt.getTime())
-      ? new Intl.DateTimeFormat(undefined, {
-          month: "short",
-          day: "numeric",
-          year: "numeric",
-          hour: "2-digit",
-          minute: "2-digit",
-        }).format(updatedAt)
-      : "Unsaved preview";
+  const updatedLabel = formatEmbedUpdatedAt(embed.updatedAt);
 
   return (
     <div

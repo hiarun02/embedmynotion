@@ -1,5 +1,13 @@
 import { Suspense } from "react";
+import Link from "next/link";
+import { cookies } from "next/headers";
+import { LogoMark } from "@/app/components/Logo";
 import { PublicPreview } from "@/components/dashboard/public-preview";
+import { getAuthenticatedUser } from "@/lib/auth-user";
+import {
+  embedAccessCookieName,
+  verifyEmbedAccessToken,
+} from "@/lib/embed-access";
 import { prisma } from "@/lib/prisma";
 import { serializeEmbed } from "@/lib/dashboard-model";
 import { loadNotionPage } from "@/lib/notion";
@@ -13,8 +21,36 @@ async function loadPublicPage(notionUrl: string) {
   }
 }
 
-async function Content({ params }: { params: Promise<{ id: string }> }) {
+function AccessShell({
+  title,
+  description,
+  children,
+}: {
+  title: string;
+  description: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <main className="embed-access-page">
+      <section className="embed-access-card">
+        <LogoMark className="embed-access-logo" />
+        <h1>{title}</h1>
+        <p>{description}</p>
+        {children}
+      </section>
+    </main>
+  );
+}
+
+async function Content({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ access_error?: string; access_token?: string }>;
+}) {
   const { id } = await params;
+  const query = await searchParams;
   const embed = await prisma.embed.findFirst({
     where: { id, isActive: true },
   });
@@ -26,6 +62,89 @@ async function Content({ params }: { params: Promise<{ id: string }> }) {
         <p>This embed is inactive or has been deleted.</p>
       </div>
     );
+  }
+
+  if (embed.emailAccess) {
+    const user = await getAuthenticatedUser();
+    const email = user?.email?.trim().toLowerCase();
+    const allowed = email ? embed.allowedEmails.includes(email) : false;
+
+    if (!allowed) {
+      const next = `/embed/${encodeURIComponent(id)}`;
+      const switchAccountNext = `/login?next=${encodeURIComponent(next)}&switch_account=1`;
+      return (
+        <AccessShell
+          title="Email access required"
+          description={
+            user
+              ? `You are signed in as ${email ?? "an unknown account"}. This account is not on the allowed list.`
+              : "Sign in with an approved email address to view this embed."
+          }
+        >
+          {user ? (
+            <div className="embed-access-actions">
+              <form
+                action="/auth/signout"
+                method="post"
+                target="_blank"
+              >
+                <input type="hidden" name="next" value={switchAccountNext} />
+                <button className="embed-access-button" type="submit">
+                  Use another Google account
+                </button>
+              </form>
+              <Link className="embed-access-button secondary" href="/">
+                Return home
+              </Link>
+            </div>
+          ) : (
+            <Link
+              className="embed-access-button"
+              href={`/login?next=${encodeURIComponent(next)}`}
+              target="_blank"
+            >
+              Sign in with Google
+            </Link>
+          )}
+        </AccessShell>
+      );
+    }
+  }
+
+  if (embed.passwordHash) {
+    const cookieStore = await cookies();
+    const unlocked =
+      verifyEmbedAccessToken(query.access_token, id, embed.passwordHash) ||
+      verifyEmbedAccessToken(
+        cookieStore.get(embedAccessCookieName(id))?.value,
+        id,
+        embed.passwordHash,
+      );
+
+    if (!unlocked) {
+      return (
+        <AccessShell
+          title="Password protected"
+          description="Enter the password provided by the embed owner."
+        >
+          <form className="embed-access-form" action={`/embed/${id}/unlock`} method="post">
+            <label htmlFor="embed-password">Password</label>
+            <input
+              id="embed-password"
+              name="password"
+              type="password"
+              minLength={8}
+              autoComplete="current-password"
+              required
+            />
+            {query.access_error === "password" ? (
+              <span role="alert">That password is not correct.</span>
+            ) : null}
+            <button type="submit">Unlock embed</button>
+          </form>
+        </AccessShell>
+      );
+    }
   }
 
   const result = await loadPublicPage(embed.notionUrl);
@@ -43,10 +162,16 @@ async function Content({ params }: { params: Promise<{ id: string }> }) {
     </div>
   );
 }
-export default function Page({ params }: { params: Promise<{ id: string }> }) {
+export default function Page({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ access_error?: string; access_token?: string }>;
+}) {
   return (
     <Suspense fallback={<p>Loading embed…</p>}>
-      <Content params={params} />
+      <Content params={params} searchParams={searchParams} />
     </Suspense>
   );
 }

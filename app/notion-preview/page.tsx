@@ -8,12 +8,24 @@ function previewTheme(value: string | string[] | undefined): Embed["theme"] {
   return value === "dark" || value === "system" ? value : "light";
 }
 
+function previewFont(value: string | string[] | undefined): Embed["font"] {
+  return value === "sans" || value === "serif" || value === "mono"
+    ? value
+    : "default";
+}
+
 async function Preview({
   searchParams,
 }: {
   searchParams: Promise<{
     url?: string | string[];
     theme?: string | string[];
+    font?: string | string[];
+    customCss?: string | string[];
+    customCssEnabled?: string | string[];
+    showTopBar?: string | string[];
+    showCoverImage?: string | string[];
+    showPageHeader?: string | string[];
     fullHeight?: string | string[];
   }>;
 }) {
@@ -30,6 +42,12 @@ async function Preview({
         <NotionPage
           recordMap={result.recordMap}
           theme={previewTheme(params.theme)}
+          font={previewFont(params.font)}
+          customCss={typeof params.customCss === "string" ? params.customCss : ""}
+          customCssEnabled={params.customCssEnabled === "1"}
+          showTopBar={params.showTopBar === "1"}
+          showCoverImage={params.showCoverImage !== "0"}
+          showPageHeader={params.showPageHeader !== "0"}
         />
       </main>
     );
@@ -57,6 +75,12 @@ export default function Page({
   searchParams: Promise<{
     url?: string | string[];
     theme?: string | string[];
+    font?: string | string[];
+    customCss?: string | string[];
+    customCssEnabled?: string | string[];
+    showTopBar?: string | string[];
+    showCoverImage?: string | string[];
+    showPageHeader?: string | string[];
     fullHeight?: string | string[];
   }>;
 }) {

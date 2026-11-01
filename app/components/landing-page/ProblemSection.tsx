@@ -12,7 +12,7 @@ const problems = [
 export function ProblemSection() {
   return (
     <section className="problem-section section" aria-labelledby="problem-title">
-      <div className="site-container">
+      <div className="site-frame section-frame">
         <div className="section-heading-row">
           <SectionIntro eyebrow="THE SIMPLE WAY" title="Embedding Notion shouldn't be complicated." body="You already have your content in Notion. Getting it onto your website should be just as simple." />
           <span className="tiny-note">Built for people who would rather publish than troubleshoot.</span>

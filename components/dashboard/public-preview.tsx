@@ -11,7 +11,17 @@ export function PublicPreview({
 }) {
   return (
     <main className="notion-embed-page">
-      <NotionPage recordMap={recordMap} theme={embed.theme} />
+      <NotionPage
+        recordMap={recordMap}
+        theme={embed.theme}
+        font={embed.font}
+        customCss={embed.customCss}
+        customCssEnabled={embed.customCssEnabled}
+        showTopBar={embed.showTopBar}
+        showCoverImage={embed.showCoverImage}
+        showPageHeader={embed.showPageHeader}
+        hideWatermark={embed.hideWatermark}
+      />
     </main>
   );
 }

@@ -53,6 +53,15 @@ enum EmbedTheme {
   @@map("embed_theme")
 }
 
+enum EmbedFont {
+  DEFAULT
+  SANS
+  SERIF
+  MONO
+
+  @@map("embed_font")
+}
+
 model Embed {
   id     String @id @default(uuid()) @db.Uuid
   userId String @map("user_id") @db.Uuid
@@ -63,9 +72,10 @@ model Embed {
 
   // Appearance
   theme        EmbedTheme @default(LIGHT)
+  font         EmbedFont  @default(DEFAULT)
   fullWidth    Boolean    @default(true) @map("full_width")
   width        Int        @default(640)
-  fullHeight   Boolean    @default(false) @map("full_height")
+  fullHeight   Boolean    @default(true) @map("full_height")
   height       Int        @default(700)
   border       Boolean    @default(false)
   borderWidth  Int        @default(1) @map("border_width") @db.SmallInt
@@ -73,8 +83,19 @@ model Embed {
   borderRadius Int        @default(8) @map("border_radius")
 
   // Premium customization
-  customCss     String? @map("custom_css") @db.Text
-  hideWatermark Boolean @default(false) @map("hide_watermark")
+  customCss        String? @map("custom_css") @db.Text
+  customCssEnabled Boolean @default(false) @map("custom_css_enabled")
+  hideWatermark    Boolean @default(false) @map("hide_watermark")
+
+  // Layout
+  showTopBar     Boolean @default(false) @map("show_top_bar")
+  showCoverImage Boolean @default(true) @map("show_cover_image")
+  showPageHeader Boolean @default(true) @map("show_page_header")
+
+  // Security
+  passwordHash  String?  @map("password_hash") @db.Text
+  emailAccess   Boolean  @default(false) @map("email_access")
+  allowedEmails String[] @default([]) @map("allowed_emails")
 
   // Embed state
   isActive Boolean @default(true) @map("is_active")

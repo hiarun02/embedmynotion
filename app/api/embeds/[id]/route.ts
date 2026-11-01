@@ -2,8 +2,15 @@ import { NextResponse } from "next/server";
 
 import { getAuthenticatedUser } from "@/lib/auth-user";
 import { serializeEmbed } from "@/lib/dashboard-model";
-import { databaseTheme, parseEmbedInput } from "@/lib/embed-input";
+import { hashEmbedPassword } from "@/lib/embed-access";
+import {
+  databaseFont,
+  databaseTheme,
+  parseEmbedInput,
+  usesPremiumFeatures,
+} from "@/lib/embed-input";
 import { prisma } from "@/lib/prisma";
+import { hasProAccess } from "@/lib/subscription";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -42,12 +49,35 @@ export async function PATCH(request: Request, { params }: RouteContext) {
     );
   }
 
-  const ownedEmbed = await prisma.embed.findFirst({
-    where: { id, userId: user.id },
-    select: { id: true },
-  });
+  const [ownedEmbed, subscription] = await Promise.all([
+    prisma.embed.findFirst({
+      where: { id, userId: user.id },
+      select: { id: true, passwordHash: true },
+    }),
+    prisma.subscription.findUnique({ where: { userId: user.id } }),
+  ]);
   if (!ownedEmbed) {
     return NextResponse.json({ message: "Embed not found." }, { status: 404 });
+  }
+
+  const hasProPlan = hasProAccess(subscription);
+
+  if (!hasProPlan && usesPremiumFeatures(input)) {
+    return NextResponse.json(
+      { message: "Upgrade to Pro to use appearance, layout, or security controls." },
+      { status: 403 },
+    );
+  }
+
+  if (
+    input.passwordProtected &&
+    !input.password &&
+    !ownedEmbed.passwordHash
+  ) {
+    return NextResponse.json(
+      { message: "Choose a password with at least 8 characters." },
+      { status: 400 },
+    );
   }
 
   try {
@@ -57,6 +87,19 @@ export async function PATCH(request: Request, { params }: RouteContext) {
         title: input.title,
         notionUrl: input.notionUrl,
         theme: databaseTheme(input.theme),
+        font: databaseFont(input.font),
+        customCssEnabled: input.customCssEnabled,
+        customCss: input.customCssEnabled ? input.customCss : null,
+        showTopBar: input.showTopBar,
+        showCoverImage: input.showCoverImage,
+        showPageHeader: input.showPageHeader,
+        passwordHash: input.passwordProtected
+          ? input.password
+            ? await hashEmbedPassword(input.password)
+            : ownedEmbed.passwordHash
+          : null,
+        emailAccess: input.emailAccess,
+        allowedEmails: input.emailAccess ? input.allowedEmails : [],
         height: input.height,
         fullWidth: input.fullWidth,
         width: input.width,

@@ -15,7 +15,7 @@ const features = [
 export function FeaturesSection() {
   return (
     <section className="features-section section" id="features">
-      <div className="site-container">
+      <div className="site-frame section-frame">
         <SectionIntro eyebrow="EVERYTHING IN PLACE" title="Everything you need. Nothing you don't." body="A focused toolkit for taking a page from Notion to your website—with less friction in between." />
         <div className="features-grid">
           {features.map(({ icon: Icon, title, text, className, art }, index) => (

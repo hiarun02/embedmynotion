@@ -9,7 +9,7 @@ const steps = [
 export function HowItWorksSection() {
   return (
     <section className="how-section section" id="how-it-works">
-      <div className="site-container">
+      <div className="site-frame section-frame">
         <SectionIntro eyebrow="HOW IT WORKS" title="Three steps. That's it." body="From public page to polished embed in a few focused moments." />
         <div className="steps-grid">
           {steps.map(([title, text], index) => (
