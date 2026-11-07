@@ -1,10 +1,6 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
-import { TooltipProvider } from "@/components/ui/tooltip";
 import { getSiteUrl, siteConfig } from "@/lib/site-config";
-import "react-notion-x/styles.css";
-import "prismjs/themes/prism-tomorrow.css";
-import "katex/dist/katex.min.css";
 import "./globals.css";
 
 const inter = Inter({
@@ -73,9 +69,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       data-scroll-behavior="smooth"
       className={`${inter.variable} h-full antialiased`}
     >
-      <body className="min-h-full">
-        <TooltipProvider>{children}</TooltipProvider>
-      </body>
+      <body className="min-h-full">{children}</body>
     </html>
   );
 }

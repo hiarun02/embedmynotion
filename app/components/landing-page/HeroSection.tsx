@@ -1,9 +1,25 @@
+import { Suspense } from "react";
 import { ArrowRight, Code2, Eye, FileText, SlidersHorizontal, Sparkles } from "lucide-react";
 import Link from "next/link";
 
+import { hasLandingSession } from "@/lib/landing-session";
+
 import { EmbedDemo } from "./EmbedDemo";
 
-export function HeroSection({ isAuthenticated }: { isAuthenticated: boolean }) {
+function HeroPrimaryAction({ isSignedIn }: { isSignedIn: boolean }) {
+  return (
+    <Link className="orange-button" href={isSignedIn ? "/dashboard" : "/login"}>
+      {isSignedIn ? "Dashboard" : "Get started free"} <ArrowRight />
+    </Link>
+  );
+}
+
+async function AuthenticatedHeroAction() {
+  const isSignedIn = await hasLandingSession();
+  return <HeroPrimaryAction isSignedIn={isSignedIn} />;
+}
+
+export function HeroSection() {
   return (
     <section className="hero-section">
       <div className="site-frame hero-frame">
@@ -22,9 +38,9 @@ export function HeroSection({ isAuthenticated }: { isAuthenticated: boolean }) {
             </h1>
             <p>Turn your Notion pages into beautiful, responsive website embeds. Customize the look, preview instantly, and publish in minutes.</p>
             <div className="hero-actions">
-              <Link className="orange-button" href={isAuthenticated ? "/dashboard" : "/login"}>
-                {isAuthenticated ? "Dashboard" : "Get started free"} <ArrowRight />
-              </Link>
+              <Suspense fallback={<HeroPrimaryAction isSignedIn />}>
+                <AuthenticatedHeroAction />
+              </Suspense>
               <a className="hero-secondary-ref" href="#how-it-works">See how it works</a>
             </div>
           </div>

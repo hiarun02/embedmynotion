@@ -1,9 +1,14 @@
 import type { Metadata } from "next";
+import { connection } from "next/server";
 import { Suspense } from "react";
 
 import { NotionPage } from "@/components/notion/notion-page";
-import { loadNotionPage } from "@/lib/notion";
+import { getAuthenticatedUser } from "@/lib/auth-user";
+import { normalizeNotionPageId } from "@/lib/identifiers";
+import { loadAuthorizedNotionPage } from "@/lib/notion";
 import type { Embed } from "@/lib/dashboard-model";
+import { prisma } from "@/lib/prisma";
+import { hasProAccess } from "@/lib/subscription";
 
 export const metadata: Metadata = {
   title: "Notion embed preview",
@@ -20,25 +25,78 @@ function previewFont(value: string | string[] | undefined): Embed["font"] {
     : "default";
 }
 
+function previewCustomCss(value: string | string[] | undefined) {
+  if (typeof value !== "string") return "";
+  const css = value.trim();
+  return css.length <= 4000 && !/<\/style/i.test(css) ? css : "";
+}
+
+type PreviewSearchParams = {
+  url?: string | string[];
+  theme?: string | string[];
+  font?: string | string[];
+  customCss?: string | string[];
+  customCssEnabled?: string | string[];
+  showTopBar?: string | string[];
+  showCoverImage?: string | string[];
+  showPageHeader?: string | string[];
+  fullHeight?: string | string[];
+  page?: string | string[];
+};
+
+function previewPageUrlPrefix(params: PreviewSearchParams) {
+  const query = new URLSearchParams();
+  const keys = [
+    "url",
+    "theme",
+    "font",
+    "customCss",
+    "customCssEnabled",
+    "showTopBar",
+    "showCoverImage",
+    "showPageHeader",
+    "fullHeight",
+  ] as const;
+
+  for (const key of keys) {
+    const value = params[key];
+    if (typeof value === "string") query.set(key, value);
+  }
+
+  query.set("page", "");
+  return `/notion-preview?${query.toString()}`;
+}
+
 async function Preview({
   searchParams,
 }: {
-  searchParams: Promise<{
-    url?: string | string[];
-    theme?: string | string[];
-    font?: string | string[];
-    customCss?: string | string[];
-    customCssEnabled?: string | string[];
-    showTopBar?: string | string[];
-    showCoverImage?: string | string[];
-    showPageHeader?: string | string[];
-    fullHeight?: string | string[];
-  }>;
+  searchParams: Promise<PreviewSearchParams>;
 }) {
+  // Supabase validates the session against the current time. Keep that
+  // request-specific work out of the Cache Components prerender pass.
+  await connection();
+
   const params = await searchParams;
+  const user = await getAuthenticatedUser();
+
+  if (!user) {
+    return (
+      <div className="notion-load-error">
+        <h1>Preview session expired</h1>
+        <p>Sign in to the dashboard again to load this private preview.</p>
+      </div>
+    );
+  }
+
+  const subscription = await prisma.subscription.findUnique({
+    where: { userId: user.id },
+  });
+  const hasProPlan = hasProAccess(subscription);
   const notionUrl = typeof params.url === "string" ? params.url : "";
   const fullHeight = params.fullHeight === "1";
-  const result = await loadPreview(notionUrl);
+  const pageId = normalizeNotionPageId(params.page);
+  const customCss = hasProPlan ? previewCustomCss(params.customCss) : "";
+  const result = await loadPreview(notionUrl, pageId);
 
   if (result.ok) {
     return (
@@ -48,12 +106,17 @@ async function Preview({
         <NotionPage
           recordMap={result.recordMap}
           theme={previewTheme(params.theme)}
-          font={previewFont(params.font)}
-          customCss={typeof params.customCss === "string" ? params.customCss : ""}
-          customCssEnabled={params.customCssEnabled === "1"}
-          showTopBar={params.showTopBar === "1"}
-          showCoverImage={params.showCoverImage !== "0"}
-          showPageHeader={params.showPageHeader !== "0"}
+          font={hasProPlan ? previewFont(params.font) : "default"}
+          customCss={customCss}
+          customCssEnabled={
+            hasProPlan && params.customCssEnabled === "1" && Boolean(customCss)
+          }
+          showTopBar={hasProPlan && params.showTopBar === "1"}
+          showCoverImage={hasProPlan ? params.showCoverImage !== "0" : true}
+          showPageHeader={hasProPlan ? params.showPageHeader !== "0" : true}
+          hideWatermark={hasProPlan}
+          reportPageIcon
+          pageUrlPrefix={previewPageUrlPrefix(params)}
         />
       </main>
     );
@@ -67,10 +130,14 @@ async function Preview({
   );
 }
 
-async function loadPreview(notionUrl: string) {
+async function loadPreview(notionUrl: string, pageId: string | null) {
   try {
-    return { ok: true as const, recordMap: await loadNotionPage(notionUrl) };
-  } catch {
+    return {
+      ok: true as const,
+      recordMap: await loadAuthorizedNotionPage(notionUrl, pageId),
+    };
+  } catch (error) {
+    console.error("Notion preview load failed:", error);
     return { ok: false as const };
   }
 }
@@ -78,17 +145,7 @@ async function loadPreview(notionUrl: string) {
 export default function Page({
   searchParams,
 }: {
-  searchParams: Promise<{
-    url?: string | string[];
-    theme?: string | string[];
-    font?: string | string[];
-    customCss?: string | string[];
-    customCssEnabled?: string | string[];
-    showTopBar?: string | string[];
-    showCoverImage?: string | string[];
-    showPageHeader?: string | string[];
-    fullHeight?: string | string[];
-  }>;
+  searchParams: Promise<PreviewSearchParams>;
 }) {
   return (
     <Suspense fallback={<div className="notion-loading">Loading Notion page…</div>}>

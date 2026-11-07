@@ -9,9 +9,11 @@ import {
   embedAccessCookieName,
   verifyEmbedAccessToken,
 } from "@/lib/embed-access";
+import { normalizeNotionPageId, validUuid } from "@/lib/identifiers";
 import { prisma } from "@/lib/prisma";
 import { serializeEmbed } from "@/lib/dashboard-model";
-import { loadNotionPage } from "@/lib/notion";
+import { loadAuthorizedNotionPage } from "@/lib/notion";
+import { hasProAccess } from "@/lib/subscription";
 import "@/app/dashboard/dashboard.css";
 
 export const metadata: Metadata = {
@@ -19,9 +21,12 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false, noarchive: true },
 };
 
-async function loadPublicPage(notionUrl: string) {
+async function loadPublicPage(notionUrl: string, pageId: string | null) {
   try {
-    return { ok: true as const, recordMap: await loadNotionPage(notionUrl) };
+    return {
+      ok: true as const,
+      recordMap: await loadAuthorizedNotionPage(notionUrl, pageId),
+    };
   } catch {
     return { ok: false as const };
   }
@@ -53,10 +58,20 @@ async function Content({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ access_error?: string; access_token?: string }>;
+  searchParams: Promise<{ access_error?: string; page?: string | string[] }>;
 }) {
   const { id } = await params;
   const query = await searchParams;
+  const pageId = normalizeNotionPageId(query.page);
+  if (!validUuid(id)) {
+    return (
+      <div className="empty-state">
+        <h1>Embed unavailable</h1>
+        <p>This embed is inactive or has been deleted.</p>
+      </div>
+    );
+  }
+
   const embed = await prisma.embed.findFirst({
     where: { id, isActive: true },
   });
@@ -70,13 +85,20 @@ async function Content({
     );
   }
 
-  if (embed.emailAccess) {
+  const subscription = await prisma.subscription.findUnique({
+    where: { userId: embed.userId },
+  });
+  const hasProPlan = hasProAccess(subscription);
+
+  if (hasProPlan && embed.emailAccess) {
     const user = await getAuthenticatedUser();
     const email = user?.email?.trim().toLowerCase();
     const allowed = email ? embed.allowedEmails.includes(email) : false;
 
     if (!allowed) {
-      const next = `/embed/${encodeURIComponent(id)}`;
+      const next = `/embed/${encodeURIComponent(id)}${
+        pageId ? `?page=${encodeURIComponent(pageId)}` : ""
+      }`;
       const switchAccountNext = `/login?next=${encodeURIComponent(next)}&switch_account=1`;
       return (
         <AccessShell
@@ -117,15 +139,13 @@ async function Content({
     }
   }
 
-  if (embed.passwordHash) {
+  if (hasProPlan && embed.passwordHash) {
     const cookieStore = await cookies();
-    const unlocked =
-      verifyEmbedAccessToken(query.access_token, id, embed.passwordHash) ||
-      verifyEmbedAccessToken(
-        cookieStore.get(embedAccessCookieName(id))?.value,
-        id,
-        embed.passwordHash,
-      );
+    const unlocked = verifyEmbedAccessToken(
+      cookieStore.get(embedAccessCookieName(id))?.value,
+      id,
+      embed.passwordHash,
+    );
 
     if (!unlocked) {
       return (
@@ -133,18 +153,28 @@ async function Content({
           title="Password protected"
           description="Enter the password provided by the embed owner."
         >
-          <form className="embed-access-form" action={`/embed/${id}/unlock`} method="post">
+          <form
+            className="embed-access-form"
+            action={`/embed/${id}/unlock`}
+            method="post"
+          >
+            {pageId ? <input type="hidden" name="page" value={pageId} /> : null}
             <label htmlFor="embed-password">Password</label>
             <input
               id="embed-password"
               name="password"
               type="password"
-              minLength={8}
+              minLength={6}
               autoComplete="current-password"
               required
             />
             {query.access_error === "password" ? (
               <span role="alert">That password is not correct.</span>
+            ) : null}
+            {query.access_error === "rate_limited" ? (
+              <span role="alert">
+                Too many attempts. Wait 15 minutes before trying again.
+              </span>
             ) : null}
             <button type="submit">Unlock embed</button>
           </form>
@@ -153,11 +183,17 @@ async function Content({
     }
   }
 
-  const result = await loadPublicPage(embed.notionUrl);
+  const result = await loadPublicPage(embed.notionUrl, pageId);
 
   if (result.ok) {
     return (
-      <PublicPreview embed={serializeEmbed(embed)} recordMap={result.recordMap} />
+      <PublicPreview
+        embed={serializeEmbed(embed, {
+          hasProAccess: hasProPlan,
+        })}
+        recordMap={result.recordMap}
+        pageUrlPrefix={`/embed/${encodeURIComponent(id)}?page=`}
+      />
     );
   }
 
@@ -173,7 +209,7 @@ export default function Page({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ access_error?: string; access_token?: string }>;
+  searchParams: Promise<{ access_error?: string; page?: string | string[] }>;
 }) {
   return (
     <Suspense fallback={<p>Loading embed…</p>}>

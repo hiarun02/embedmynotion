@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   embedCode,
   formatEmbedUpdatedAt,
+  notionPageId,
   serializeEmbed,
   validNotionUrl,
 } from "../lib/dashboard-model.ts";
@@ -30,14 +31,34 @@ const embed = {
   borderWidth: 1,
   borderColor: "#e5e7eb",
   radius: 8,
+  backgroundStyle: "none",
   active: true,
   createdAt: "2026-10-24T12:00:00Z",
   updatedAt: "2026-10-29T08:47:00Z",
 };
 
 test("accepts only HTTPS Notion page links", () => {
-  for (const value of ["https://studio.notion.site/handbook", "https://www.notion.so/page"]) assert.equal(validNotionUrl(value), true);
+  for (const value of ["https://studio.notion.site/handbook", "https://www.notion.so/page", "https://www.notion.com/page"]) assert.equal(validNotionUrl(value), true);
   for (const value of ["javascript:alert(1)", "https://notion.site.evil.com/page", "https://evilnotion.so/page", "http://notion.so/page", "https://notion.so/", "https://user:pass@notion.so/page", "invalid"]) assert.equal(validNotionUrl(value), false);
+});
+
+test("extracts a page ID from published Notion URLs without consuming slug characters", () => {
+  assert.equal(
+    notionPageId(
+      "https://hiarun.notion.site/Notion-Beginner-Course-b18b64a9727a82cf983101d4ae812ac7?source=copy_link",
+    ),
+    "b18b64a9727a82cf983101d4ae812ac7",
+  );
+  assert.equal(
+    notionPageId(
+      "https://www.notion.so/Notion-Course-b18b64a9-727a-82cf-9831-01d4ae812ac7",
+    ),
+    "b18b64a9727a82cf983101d4ae812ac7",
+  );
+  assert.equal(
+    notionPageId("https://hiarun.notion.site/notion-beginner-course"),
+    null,
+  );
 });
 
 test("formats embed timestamps consistently for server hydration", () => {
@@ -99,6 +120,7 @@ test("serializes database embed fields for the dashboard", () => {
       borderWidth: embed.borderWidth,
       borderColor: embed.borderColor,
       borderRadius: embed.radius,
+      backgroundStyle: embed.backgroundStyle,
       isActive: embed.active,
       createdAt: new Date(embed.createdAt),
       updatedAt: new Date(embed.updatedAt),
@@ -120,4 +142,78 @@ test("serializes database embed fields for the dashboard", () => {
       updatedAt: "2026-10-29T08:47:00.000Z",
     },
   );
+});
+
+test("hides the watermark automatically for Pro embeds", () => {
+  const databaseEmbed = {
+    id: embed.id,
+    title: embed.title,
+    notionUrl: embed.notionUrl,
+    theme: "LIGHT",
+    font: "DEFAULT",
+    customCssEnabled: false,
+    customCss: null,
+    showTopBar: false,
+    showCoverImage: true,
+    showPageHeader: true,
+    passwordHash: null,
+    emailAccess: false,
+    allowedEmails: [],
+    hideWatermark: false,
+    height: embed.height,
+    fullWidth: embed.fullWidth,
+    width: embed.width,
+    fullHeight: embed.fullHeight,
+    border: embed.border,
+    borderWidth: embed.borderWidth,
+    borderColor: embed.borderColor,
+    borderRadius: embed.radius,
+    backgroundStyle: "aqua",
+    isActive: embed.active,
+    createdAt: embed.createdAt,
+    updatedAt: embed.updatedAt,
+  };
+  const serialized = serializeEmbed(databaseEmbed, { hasProAccess: true });
+
+  assert.equal(serialized.hideWatermark, true);
+  assert.equal(serialized.backgroundStyle, "aqua");
+  assert.equal(
+    serializeEmbed(
+      { ...databaseEmbed, hideWatermark: true },
+      { hasProAccess: false },
+    ).hideWatermark,
+    false,
+  );
+  assert.equal(
+    serializeEmbed(databaseEmbed, { hasProAccess: false }).backgroundStyle,
+    "aqua",
+  );
+
+  const freeEmbed = serializeEmbed(
+    {
+      ...databaseEmbed,
+      font: "SERIF",
+      customCssEnabled: true,
+      customCss: ".notion { color: red; }",
+      showTopBar: true,
+      showCoverImage: false,
+      showPageHeader: false,
+      passwordHash: "scrypt$test$hash",
+      emailAccess: true,
+      allowedEmails: ["team@example.com"],
+      hideWatermark: true,
+    },
+    { hasProAccess: false },
+  );
+
+  assert.equal(freeEmbed.font, "default");
+  assert.equal(freeEmbed.customCssEnabled, false);
+  assert.equal(freeEmbed.customCss, "");
+  assert.equal(freeEmbed.showTopBar, false);
+  assert.equal(freeEmbed.showCoverImage, true);
+  assert.equal(freeEmbed.showPageHeader, true);
+  assert.equal(freeEmbed.passwordProtected, false);
+  assert.equal(freeEmbed.emailAccess, false);
+  assert.deepEqual(freeEmbed.allowedEmails, []);
+  assert.equal(freeEmbed.hideWatermark, false);
 });

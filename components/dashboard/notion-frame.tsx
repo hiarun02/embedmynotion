@@ -1,23 +1,141 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
+import Link from "next/link";
 import { ArrowLeft, Clock3, FileText, Link2 } from "lucide-react";
 
+import { LogoMark } from "@/app/components/Logo";
 import {
   formatEmbedUpdatedAt,
   validNotionUrl,
   type Embed,
 } from "@/lib/dashboard-model";
+import { embedBackgroundValue } from "@/lib/embed-background";
 
-export function NotionFrame({ embed }: { embed: Embed }) {
+type PreviewPageIcon =
+  | { kind: "emoji"; value: string }
+  | { kind: "image"; value: string };
+
+export function NotionFrame({
+  embed,
+  previewPassword,
+}: {
+  embed: Embed;
+  previewPassword?: string;
+}) {
+  const passwordInputId = useId();
   const [notionUrl, setNotionUrl] = useState(embed.notionUrl);
   const [fullPageHeight, setFullPageHeight] = useState(embed.height);
+  const [pageIcon, setPageIcon] = useState<PreviewPageIcon | null>(null);
+  const [passwordAttempt, setPasswordAttempt] = useState("");
+  const [passwordError, setPasswordError] = useState("");
+  const [unlockedPasswordKey, setUnlockedPasswordKey] = useState<string | null>(
+    null,
+  );
+  const [unlocking, setUnlocking] = useState(false);
   const frameRef = useRef<HTMLIFrameElement>(null);
 
+  const passwordKey = previewPassword
+    ? `draft-password:${previewPassword}`
+    : "saved-password";
+  const passwordGateVisible =
+    embed.passwordProtected && unlockedPasswordKey !== passwordKey;
+
   useEffect(() => {
-    const timeout = window.setTimeout(() => setNotionUrl(embed.notionUrl), 650);
+    const timeout = window.setTimeout(() => {
+      setPageIcon(null);
+      setNotionUrl(embed.notionUrl);
+    }, 650);
     return () => window.clearTimeout(timeout);
   }, [embed.notionUrl]);
+
+  useEffect(() => {
+    const receivePageIcon = (event: MessageEvent<unknown>) => {
+      if (
+        event.origin !== window.location.origin ||
+        event.source !== frameRef.current?.contentWindow ||
+        typeof event.data !== "object" ||
+        event.data === null
+      ) {
+        return;
+      }
+
+      const message = event.data as {
+        type?: unknown;
+        icon?: { kind?: unknown; value?: unknown } | null;
+      };
+
+      if (message.type !== "embedmynotion:page-icon") return;
+
+      const icon = message.icon;
+      if (
+        icon &&
+        (icon.kind === "emoji" || icon.kind === "image") &&
+        typeof icon.value === "string" &&
+        icon.value
+      ) {
+        setPageIcon({ kind: icon.kind, value: icon.value });
+      } else {
+        setPageIcon(null);
+      }
+    };
+
+    window.addEventListener("message", receivePageIcon);
+    return () => window.removeEventListener("message", receivePageIcon);
+  }, []);
+
+  async function unlockPreview() {
+    setPasswordError("");
+
+    if (passwordAttempt.length < 6) {
+      setPasswordError("Enter at least 6 characters.");
+      return;
+    }
+
+    if (previewPassword) {
+      if (passwordAttempt !== previewPassword) {
+        setPasswordError("That password is not correct.");
+        return;
+      }
+
+      setPasswordAttempt("");
+      setUnlockedPasswordKey(passwordKey);
+      return;
+    }
+
+    if (!embed.id) {
+      setPasswordError("Set a password in Security settings first.");
+      return;
+    }
+
+    setUnlocking(true);
+    try {
+      const response = await fetch(
+        `/api/embeds/${encodeURIComponent(embed.id)}/verify-password`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ password: passwordAttempt }),
+        },
+      );
+      const result = (await response.json()) as {
+        unlocked?: boolean;
+        message?: string;
+      };
+
+      if (!response.ok || !result.unlocked) {
+        setPasswordError(result.message ?? "That password is not correct.");
+        return;
+      }
+
+      setPasswordAttempt("");
+      setUnlockedPasswordKey(passwordKey);
+    } catch {
+      setPasswordError("The password could not be checked. Try again.");
+    } finally {
+      setUnlocking(false);
+    }
+  }
 
   useEffect(() => {
     if (!embed.fullHeight) return;
@@ -102,6 +220,7 @@ export function NotionFrame({ embed }: { embed: Embed }) {
   });
 
   const updatedLabel = formatEmbedUpdatedAt(embed.updatedAt);
+  const hasBackgroundStyle = embed.backgroundStyle !== "none";
 
   return (
     <div
@@ -112,11 +231,23 @@ export function NotionFrame({ embed }: { embed: Embed }) {
       }}
     >
       <header className="notion-preview-header">
-        <span className="notion-preview-back" aria-hidden="true">
+        <Link
+          href="/dashboard/embeds"
+          className="notion-preview-back"
+          aria-label="Back to embeds"
+        >
           <ArrowLeft />
-        </span>
+        </Link>
         <span className="notion-preview-icon" aria-hidden="true">
-          <FileText />
+          {pageIcon?.kind === "image" ? (
+            // The URL has already been resolved by the same-origin Notion renderer.
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={pageIcon.value} alt="" />
+          ) : pageIcon?.kind === "emoji" ? (
+            <span className="notion-preview-icon-emoji">{pageIcon.value}</span>
+          ) : (
+            <FileText />
+          )}
         </span>
         <div className="notion-preview-identity">
           <strong>{embed.title.trim() || "Untitled embed"}</strong>
@@ -134,7 +265,19 @@ export function NotionFrame({ embed }: { embed: Embed }) {
         </div>
       </header>
       <div
-        className="notion-preview-page-frame"
+        className={`notion-preview-style-shell${
+          hasBackgroundStyle ? " has-background-style" : ""
+        }`}
+        style={{
+          background: embedBackgroundValue(embed.backgroundStyle),
+          padding: hasBackgroundStyle ? "clamp(12px, 2vw, 22px)" : 0,
+          borderRadius: hasBackgroundStyle ? embed.radius + 8 : 0,
+        }}
+      >
+      <div
+        className={`notion-preview-page-frame${
+          passwordGateVisible ? " is-password-protected" : ""
+        }`}
         style={{
           border: embed.border
             ? `${embed.borderWidth}px solid ${embed.borderColor}`
@@ -148,9 +291,55 @@ export function NotionFrame({ embed }: { embed: Embed }) {
           src={`/notion-preview?${params.toString()}`}
           title={`Live preview of ${embed.title || "Notion page"}`}
           style={{ height: embed.fullHeight ? fullPageHeight : embed.height }}
+          aria-hidden={passwordGateVisible}
+          tabIndex={passwordGateVisible ? -1 : undefined}
           loading="eager"
           referrerPolicy="strict-origin-when-cross-origin"
         />
+        {passwordGateVisible ? (
+          <div className="password-preview-gate">
+            <section
+              className="password-preview-card"
+              aria-label="Password-protected embed preview"
+            >
+              <LogoMark className="password-preview-logo" />
+              <h2>Password protected</h2>
+              <p>Enter the password provided by the embed owner.</p>
+              <div className="password-preview-fields">
+                <label htmlFor={passwordInputId}>Password</label>
+                <input
+                  id={passwordInputId}
+                  type="password"
+                  value={passwordAttempt}
+                  minLength={6}
+                  maxLength={72}
+                  placeholder="Enter password"
+                  autoComplete="current-password"
+                  onChange={(event) => setPasswordAttempt(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      void unlockPreview();
+                    }
+                  }}
+                />
+                {passwordError ? (
+                  <span className="password-preview-error" role="alert">
+                    {passwordError}
+                  </span>
+                ) : null}
+                <button
+                  type="button"
+                  disabled={unlocking}
+                  onClick={() => void unlockPreview()}
+                >
+                  {unlocking ? "Checking…" : "Unlock embed"}
+                </button>
+              </div>
+            </section>
+          </div>
+        ) : null}
+      </div>
       </div>
     </div>
   );

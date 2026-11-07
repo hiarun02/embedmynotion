@@ -1,4 +1,5 @@
-const FALLBACK_SITE_URL = "http://localhost:3000";
+const LOCAL_SITE_URL = "http://localhost:3000";
+const PRODUCTION_SITE_URL = "https://embedmynotion.com";
 
 function normalizeSiteUrl(value: string | undefined) {
   if (!value?.trim()) return null;
@@ -19,17 +20,40 @@ function normalizeSiteUrl(value: string | undefined) {
 }
 
 export function getSiteUrl() {
-  return (
+  const configuredUrl =
     normalizeSiteUrl(process.env.SITE_URL) ??
     normalizeSiteUrl(process.env.VERCEL_PROJECT_PRODUCTION_URL) ??
-    normalizeSiteUrl(process.env.VERCEL_URL) ??
-    FALLBACK_SITE_URL
-  );
+    normalizeSiteUrl(process.env.VERCEL_URL);
+
+  if (process.env.NODE_ENV === "production") {
+    if (!configuredUrl) return PRODUCTION_SITE_URL;
+
+    const hostname = new URL(configuredUrl).hostname;
+    if (
+      hostname === "localhost" ||
+      hostname === "127.0.0.1" ||
+      hostname === "::1"
+    ) {
+      return PRODUCTION_SITE_URL;
+    }
+  }
+
+  return configuredUrl ?? LOCAL_SITE_URL;
+}
+
+export function appUrl(path: string, requestUrl?: string) {
+  if (process.env.NODE_ENV !== "production" && requestUrl) {
+    return new URL(path, new URL(requestUrl).origin);
+  }
+
+  return new URL(path, `${getSiteUrl()}/`);
 }
 
 export const siteConfig = {
   name: "EmbedMyNotion",
   shortName: "EmbedMyNotion",
+  supportEmail: "hi@embedmynotion.com",
+  supportUrl: "mailto:hi@embedmynotion.com",
   title: "Embed Notion Pages on Any Website | EmbedMyNotion",
   description:
     "Turn public Notion pages into responsive website embeds. Customize the theme, layout, dimensions, and access controls, then publish in minutes.",
@@ -44,5 +68,5 @@ export const siteConfig = {
 } as const;
 
 export function absoluteUrl(path = "/") {
-  return new URL(path, `${getSiteUrl()}/`).toString();
+  return appUrl(path).toString();
 }

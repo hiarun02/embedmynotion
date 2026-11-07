@@ -75,7 +75,7 @@ export async function PATCH(request: Request, { params }: RouteContext) {
     !ownedEmbed.passwordHash
   ) {
     return NextResponse.json(
-      { message: "Choose a password with at least 8 characters." },
+      { message: "Choose a password with at least 6 characters." },
       { status: 400 },
     );
   }
@@ -108,11 +108,14 @@ export async function PATCH(request: Request, { params }: RouteContext) {
         borderWidth: input.borderWidth,
         borderColor: input.borderColor,
         borderRadius: input.radius,
+        backgroundStyle: input.backgroundStyle,
         isActive: input.active,
       },
     });
 
-    return NextResponse.json({ embed: serializeEmbed(embed) });
+    return NextResponse.json({
+      embed: serializeEmbed(embed, { hasProAccess: hasProPlan }),
+    });
   } catch (error) {
     console.error("Embed update failed:", error);
     return NextResponse.json(

@@ -31,7 +31,7 @@ const links = [
   { label: "FAQ", href: "/#faq", icon: CircleHelp },
 ];
 
-export function MobileNav({ isAuthenticated }: { isAuthenticated: boolean }) {
+export function MobileNav({ isSignedIn }: { isSignedIn: boolean }) {
   return (
     <Sheet>
       <SheetTrigger render={<Button variant="outline" size="icon" className="mobile-nav-trigger ml-auto hidden max-[760px]:inline-flex" aria-label="Open navigation" />}>
@@ -66,12 +66,12 @@ export function MobileNav({ isAuthenticated }: { isAuthenticated: boolean }) {
             nativeButton={false}
             render={
               <Link
-                href={isAuthenticated ? "/dashboard" : "/login"}
+                href={isSignedIn ? "/dashboard" : "/login"}
                 className="mobile-nav-primary"
               />
             }
           >
-            <span>{isAuthenticated ? "Dashboard" : "Get started free"}</span>
+            <span>{isSignedIn ? "Dashboard" : "Get started free"}</span>
             <ArrowRight aria-hidden="true" />
           </SheetClose>
         </div>

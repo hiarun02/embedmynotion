@@ -1,11 +1,13 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 import { isSupabaseConfigured } from "@/lib/supabase/config";
+import { safeRedirectPath } from "@/lib/safe-redirect";
+import { appUrl } from "@/lib/site-config";
 import { createClient } from "@/lib/supabase/server";
 
 export async function POST(request: NextRequest) {
   if (!isSupabaseConfigured()) {
-    const loginUrl = new URL("/login", request.url);
+    const loginUrl = appUrl("/login", request.url);
     loginUrl.searchParams.set("error", "config_missing");
     return NextResponse.redirect(loginUrl, { status: 303 });
   }
@@ -14,11 +16,8 @@ export async function POST(request: NextRequest) {
   const formData = await request.formData();
   const requestedNext = formData.get("next");
   const switchAccount = formData.get("switch_account") === "1";
-  const next =
-    typeof requestedNext === "string" && /^\/(?!\/)/.test(requestedNext)
-      ? requestedNext
-      : "/dashboard";
-  const callbackUrl = new URL("/auth/callback", request.url);
+  const next = safeRedirectPath(requestedNext, "/dashboard");
+  const callbackUrl = appUrl("/auth/callback", request.url);
   callbackUrl.searchParams.set("next", next);
 
   const { data, error } = await supabase.auth.signInWithOAuth({
@@ -30,7 +29,7 @@ export async function POST(request: NextRequest) {
   });
 
   if (error || !data.url) {
-    const loginUrl = new URL("/login", request.url);
+    const loginUrl = appUrl("/login", request.url);
     loginUrl.searchParams.set("error", "oauth_start_failed");
     return NextResponse.redirect(loginUrl, { status: 303 });
   }

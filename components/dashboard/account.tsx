@@ -10,8 +10,10 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { setDemoPlan } from "@/lib/demo-plan";
+import { applyEmbedEntitlements } from "@/lib/dashboard-model";
 import { useWorkspace } from "./store";
-import { PageHeading, UpgradeDialog } from "./dashboard";
+import { PageHeading } from "./dashboard-shared";
+import { UpgradeDialog } from "./upgrade-dialog";
 export function BillingPage() {
   const { workspace, update } = useWorkspace();
   const [yearly, setYearly] = useState(false);
@@ -19,10 +21,17 @@ export function BillingPage() {
   const [changingPlan, setChangingPlan] = useState(false);
 
   async function switchToFreeDemo() {
+    if (!workspace.demoPlanEnabled) return;
     setChangingPlan(true);
     try {
       const plan = await setDemoPlan("Free");
-      update({ ...workspace, plan });
+      update({
+        ...workspace,
+        plan,
+        embeds: workspace.embeds.map((embed) =>
+          applyEmbedEntitlements(embed, false),
+        ),
+      });
       toast.success("Switched to the Free demo");
     } catch (error) {
       toast.error(
@@ -47,7 +56,9 @@ export function BillingPage() {
             <p>
               {workspace.plan === "Free"
                 ? "Everything you need to get your first embed out there."
-                : "More space to bring your ideas to life. Demo access — no payment."}
+                : workspace.demoPlanEnabled
+                  ? "More space to bring your ideas to life. Demo access — no payment."
+                  : "More space to bring your ideas to life."}
             </p>
           </div>
           <Badge variant="secondary">{workspace.plan} plan</Badge>
@@ -124,7 +135,7 @@ export function BillingPage() {
                   "Basic customization",
                   "Appearance and layout controls",
                   "Password and email access",
-                  "Remove watermark — planned",
+                  "Remove watermark",
                 ]
               ).map((t) => (
                 <div key={t}>
@@ -139,6 +150,7 @@ export function BillingPage() {
               disabled={
                 changingPlan ||
                 workspace.plan === plan ||
+                !workspace.demoPlanEnabled ||
                 (plan === "Free" && workspace.embeds.length > 1)
               }
               onClick={() =>
@@ -149,6 +161,10 @@ export function BillingPage() {
             >
               {workspace.plan === plan
                 ? "Current plan"
+                : !workspace.demoPlanEnabled
+                  ? plan === "Pro"
+                    ? "Pro checkout coming soon"
+                    : "Managed by billing provider"
                 : plan === "Pro"
                   ? "Upgrade to Pro"
                   : "Switch to Free demo"}
@@ -161,10 +177,12 @@ export function BillingPage() {
           </Card>
         ))}
       </div>
-      <p className="demo-note">
-        No payment processing is connected. Demo plan changes are saved to this
-        account.
-      </p>
+      {workspace.demoPlanEnabled ? (
+        <p className="demo-note">
+          No payment processing is connected. Demo plan changes are saved to this
+          account.
+        </p>
+      ) : null}
       <UpgradeDialog open={upgrade} onOpenChange={setUpgrade} />
     </>
   );

@@ -1,3 +1,5 @@
+import type { EmbedBackgroundStyle } from "@/lib/embed-background";
+
 export type Embed = {
   id: string;
   title: string;
@@ -21,6 +23,7 @@ export type Embed = {
   borderWidth: number;
   borderColor: string;
   radius: number;
+  backgroundStyle: EmbedBackgroundStyle;
   active: boolean;
   createdAt: string;
   updatedAt: string;
@@ -28,6 +31,7 @@ export type Embed = {
 export type Workspace = {
   embeds: Embed[];
   plan: "Free" | "Pro";
+  demoPlanEnabled: boolean;
   name: string;
   email: string;
   avatarUrl: string | null;
@@ -38,6 +42,24 @@ export type AuthenticatedProfile = Pick<
   Workspace,
   "name" | "email" | "avatarUrl" | "authProvider"
 >;
+
+export function applyEmbedEntitlements(embed: Embed, hasProAccess: boolean) {
+  if (hasProAccess) return { ...embed, hideWatermark: true };
+
+  return {
+    ...embed,
+    font: "default" as const,
+    customCssEnabled: false,
+    customCss: "",
+    showTopBar: false,
+    showCoverImage: true,
+    showPageHeader: true,
+    passwordProtected: false,
+    emailAccess: false,
+    allowedEmails: [],
+    hideWatermark: false,
+  };
+}
 
 type DatabaseEmbed = {
   id: string;
@@ -62,13 +84,17 @@ type DatabaseEmbed = {
   borderWidth: number;
   borderColor: string;
   borderRadius: number;
+  backgroundStyle: string;
   isActive: boolean;
   createdAt: Date | string;
   updatedAt: Date | string;
 };
 
-export function serializeEmbed(embed: DatabaseEmbed): Embed {
-  return {
+export function serializeEmbed(
+  embed: DatabaseEmbed,
+  options: { hasProAccess?: boolean } = {},
+): Embed {
+  const serialized: Embed = {
     id: embed.id,
     title: embed.title,
     notionUrl: embed.notionUrl,
@@ -82,7 +108,10 @@ export function serializeEmbed(embed: DatabaseEmbed): Embed {
     passwordProtected: Boolean(embed.passwordHash),
     emailAccess: embed.emailAccess,
     allowedEmails: embed.allowedEmails,
-    hideWatermark: embed.hideWatermark,
+    hideWatermark:
+      options.hasProAccess === undefined
+        ? embed.hideWatermark
+        : options.hasProAccess,
     height: embed.height,
     fullWidth: embed.fullWidth,
     width: embed.width,
@@ -91,6 +120,7 @@ export function serializeEmbed(embed: DatabaseEmbed): Embed {
     borderWidth: embed.borderWidth,
     borderColor: embed.borderColor,
     radius: embed.borderRadius,
+    backgroundStyle: embed.backgroundStyle as EmbedBackgroundStyle,
     active: embed.isActive,
     createdAt:
       embed.createdAt instanceof Date
@@ -101,6 +131,10 @@ export function serializeEmbed(embed: DatabaseEmbed): Embed {
         ? embed.updatedAt.toISOString()
         : embed.updatedAt,
   };
+
+  return options.hasProAccess === undefined
+    ? serialized
+    : applyEmbedEntitlements(serialized, options.hasProAccess);
 }
 
 export function validNotionUrl(value: string) {
@@ -110,12 +144,28 @@ export function validNotionUrl(value: string) {
       url.protocol === "https:" &&
       !url.username &&
       !url.password &&
-      /(^|\.)notion\.(so|site)$/.test(url.hostname) &&
+      /(^|\.)notion\.(so|site|com)$/.test(url.hostname) &&
       url.pathname.length > 1
     );
   } catch {
     return false;
   }
+}
+
+export function notionPageId(value: string) {
+  if (!validNotionUrl(value)) return null;
+
+  const url = new URL(value);
+  const finalPathSegment = url.pathname.split("/").filter(Boolean).at(-1);
+  const compactSegment = finalPathSegment?.replaceAll("-", "") ?? "";
+  const pathMatch = compactSegment.match(/([0-9a-f]{32})$/i);
+
+  if (pathMatch) return pathMatch[1].toLowerCase();
+
+  const queryId = url.searchParams.get("p")?.replaceAll("-", "");
+  return queryId && /^[0-9a-f]{32}$/i.test(queryId)
+    ? queryId.toLowerCase()
+    : null;
 }
 
 export function formatEmbedUpdatedAt(value: string) {

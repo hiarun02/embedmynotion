@@ -1,4 +1,5 @@
 import { validNotionUrl, type Embed } from "@/lib/dashboard-model";
+import { isEmbedBackgroundStyle } from "@/lib/embed-background";
 
 export type EmbedInput = Pick<
   Embed,
@@ -22,6 +23,7 @@ export type EmbedInput = Pick<
   | "borderWidth"
   | "borderColor"
   | "radius"
+  | "backgroundStyle"
   | "active"
 > & { password: string };
 
@@ -63,7 +65,7 @@ export function parseEmbedInput(value: unknown): EmbedInput | null {
     typeof input.showPageHeader !== "boolean" ||
     typeof input.passwordProtected !== "boolean" ||
     password.length > 72 ||
-    (password.length > 0 && password.length < 8) ||
+    (password.length > 0 && password.length < 6) ||
     typeof input.emailAccess !== "boolean" ||
     allowedEmails.length > 50 ||
     allowedEmails.some((email) => !emailPattern.test(email)) ||
@@ -82,6 +84,7 @@ export function parseEmbedInput(value: unknown): EmbedInput | null {
     (input.borderWidth as number) > 12 ||
     typeof input.borderColor !== "string" ||
     !/^#[0-9a-f]{6}$/i.test(input.borderColor) ||
+    !isEmbedBackgroundStyle(input.backgroundStyle) ||
     typeof input.fullWidth !== "boolean" ||
     typeof input.fullHeight !== "boolean" ||
     typeof input.border !== "boolean" ||
@@ -112,6 +115,7 @@ export function parseEmbedInput(value: unknown): EmbedInput | null {
     borderWidth: input.borderWidth as number,
     borderColor: input.borderColor.toLowerCase(),
     radius: input.radius as number,
+    backgroundStyle: input.backgroundStyle,
     active: input.active,
   };
 }
