@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { ArrowRight, Code2, Eye, FileText, SlidersHorizontal, Sparkles } from "lucide-react";
+import { ArrowRight, Code2, FileText } from "lucide-react";
 import Link from "next/link";
 
 import { hasLandingSession } from "@/lib/landing-session";
@@ -43,21 +43,6 @@ export function HeroSection() {
               </Suspense>
               <a className="hero-secondary-ref" href="#how-it-works">See how it works</a>
             </div>
-          </div>
-        </div>
-
-        <div className="editor-intro">
-          <div className="editor-intro-copy">
-            <span className="editor-intro-label"><Sparkles /> LIVE EDITOR</span>
-            <h2>Customize. Preview. Embed.</h2>
-            <p>Fine-tune the details, see every change, then copy the code.</p>
-          </div>
-          <div className="editor-flow" aria-label="Editor workflow">
-            <span><b>01</b><SlidersHorizontal /> Customize</span>
-            <i aria-hidden="true" />
-            <span><b>02</b><Eye /> Preview</span>
-            <i aria-hidden="true" />
-            <span><b>03</b><Code2 /> Embed</span>
           </div>
         </div>
 

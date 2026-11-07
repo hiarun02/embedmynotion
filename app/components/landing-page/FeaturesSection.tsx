@@ -1,29 +1,66 @@
-import { Blocks, Eye, Gauge, LayoutDashboard, Link2, Palette } from "lucide-react";
+import {
+  Code2,
+  Eye,
+  KeyRound,
+  LayoutDashboard,
+  Paintbrush,
+  RefreshCw,
+} from "lucide-react";
 
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { SectionIntro } from "./SectionIntro";
 
 const features = [
-  { icon: Link2, title: "One-click embeds", text: "Generate a ready-to-use snippet from a public Notion URL.", className: "feature-large", art: "link" },
-  { icon: Eye, title: "Live preview", text: "See every supported change before you publish.", className: "", art: "preview" },
-  { icon: Palette, title: "Custom appearance", text: "Tune theme, width, spacing, border, and corner radius.", className: "", art: "swatches" },
-  { icon: Gauge, title: "Responsive by design", text: "Create embeds that feel at home across screen sizes.", className: "feature-wide", art: "devices" },
-  { icon: LayoutDashboard, title: "Embed dashboard", text: "Keep saved embeds organized in one clear workspace.", className: "", art: "dashboard" },
-  { icon: Blocks, title: "Easy integration", text: "Copy code into compatible site builders or custom websites.", className: "", art: "code" },
+  {
+    icon: Code2,
+    title: "Paste once. Publish anywhere.",
+    text: "Start with one public Notion URL, then copy a public embed link, iframe snippet, or WordPress shortcode.",
+  },
+  {
+    icon: RefreshCw,
+    title: "Keep Notion as your source.",
+    text: "Update the original page instead of maintaining a second copy. Visitors load its current published content.",
+  },
+  {
+    icon: Paintbrush,
+    title: "Make it feel like your website.",
+    text: "Control theme, dimensions, borders, radius, page elements, backgrounds, fonts, and advanced custom CSS.",
+  },
+  {
+    icon: Eye,
+    title: "Preview before visitors see it.",
+    text: "Review supported appearance and layout changes in the editor before you save and share the embed.",
+  },
+  {
+    icon: KeyRound,
+    title: "Protect content when needed.",
+    text: "Put a password or approved Google-email sign-in in front of pages that should not be completely public.",
+  },
+  {
+    icon: LayoutDashboard,
+    title: "Manage everything in one place.",
+    text: "See page names and icons, update saved settings, take embeds offline, and manage branding from one dashboard.",
+  },
 ];
 
 export function FeaturesSection() {
   return (
     <section className="features-section section" id="features">
       <div className="site-frame section-frame">
-        <SectionIntro eyebrow="EVERYTHING IN PLACE" title="Everything you need. Nothing you don't." body="A focused toolkit for taking a page from Notion to your website—with less friction in between." />
-        <div className="features-grid">
-          {features.map(({ icon: Icon, title, text, className, art }, index) => (
-            <Card key={title} className={`feature-card ${className}`}>
-              <CardHeader><span className="feature-icon"><Icon /></span><span className="feature-index">{String(index + 1).padStart(2, "0")}</span></CardHeader>
-              <div className={`feature-art art-${art}`} aria-hidden="true"><span /><span /><span /></div>
-              <CardContent><h3>{title}</h3><p>{text}</p></CardContent>
-            </Card>
+        <SectionIntro
+          eyebrow="EVERYTHING IN PLACE"
+          title="The friction between Notion and your website, removed."
+          body="No duplicate content, fragile iframe fixes, or scattered controls—just the six things that matter when you publish."
+        />
+        <div className="features-connected-grid">
+          {features.map(({ icon: Icon, title, text }, index) => (
+            <article className="features-connected-card" key={title}>
+              <div className="features-connected-top">
+                <span>{String(index + 1).padStart(2, "0")}</span>
+                <i><Icon /></i>
+              </div>
+              <h3>{title}</h3>
+              <p>{text}</p>
+            </article>
           ))}
         </div>
       </div>

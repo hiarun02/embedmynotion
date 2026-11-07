@@ -7,6 +7,7 @@ import { Footer } from "./components/landing-page/Footer";
 import { Header } from "./components/landing-page/Header";
 import { HeroSection } from "./components/landing-page/HeroSection";
 import { HowItWorksSection } from "./components/landing-page/HowItWorksSection";
+import { PricingSection } from "./components/landing-page/PricingSection";
 import { ProblemSection } from "./components/landing-page/ProblemSection";
 import { JsonLd } from "@/components/seo/json-ld";
 import { absoluteUrl, siteConfig } from "@/lib/site-config";
@@ -76,6 +77,7 @@ export default function Home() {
         <ProblemSection />
         <FeaturesSection />
         <HowItWorksSection />
+        <PricingSection />
         <FaqSection />
       </main>
       <Footer />
