@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
   const switchAccount = formData.get("switch_account") === "1";
   const next = safeRedirectPath(requestedNext, "/dashboard");
   const callbackUrl = appUrl("/auth/callback", request.url);
-  callbackUrl.searchParams.set("next", next);
+  if (next !== "/dashboard") callbackUrl.searchParams.set("next", next);
 
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: "google",
