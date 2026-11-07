@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 
 import { getAuthenticatedUser } from "@/lib/auth-user";
+import { isDemoPlanEnabled } from "@/lib/demo-mode";
 import { prisma } from "@/lib/prisma";
 import { hasProAccess } from "@/lib/subscription";
 
@@ -11,6 +12,13 @@ export async function PATCH(request: Request) {
     return NextResponse.json(
       { message: "Please sign in again." },
       { status: 401 },
+    );
+  }
+
+  if (!isDemoPlanEnabled()) {
+    return NextResponse.json(
+      { message: "Demo plan changes are disabled." },
+      { status: 403 },
     );
   }
 
@@ -56,9 +64,27 @@ export async function PATCH(request: Request) {
         { status: 409 },
       );
     }
-    if (existing) {
-      await prisma.subscription.delete({ where: { userId: user.id } });
-    }
+    await prisma.$transaction(async (transaction) => {
+      await transaction.embed.updateMany({
+        where: { userId: user.id },
+        data: {
+          font: "DEFAULT",
+          customCss: null,
+          customCssEnabled: false,
+          hideWatermark: false,
+          showTopBar: false,
+          showCoverImage: true,
+          showPageHeader: true,
+          passwordHash: null,
+          emailAccess: false,
+          allowedEmails: [],
+        },
+      });
+
+      if (existing) {
+        await transaction.subscription.delete({ where: { userId: user.id } });
+      }
+    });
     return NextResponse.json({ plan: "Free" as const });
   }
 

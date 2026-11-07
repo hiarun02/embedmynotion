@@ -8,7 +8,12 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 const snippet = '<iframe src="https://embedmynotion.example/product-handbook" width="100%" height="640"></iframe>';
 
@@ -27,7 +32,8 @@ export function EmbedDemo() {
   }
 
   return (
-    <div className="demo-shell" id="demo">
+    <TooltipProvider>
+      <div className="demo-shell" id="demo">
       <div className="demo-topbar">
         <div className="window-dots" aria-hidden="true"><span /><span /><span /></div>
         <span className="demo-breadcrumb">Embeds <span>/</span> Product handbook</span>
@@ -116,6 +122,7 @@ export function EmbedDemo() {
           </div>
         </section>
       </div>
-    </div>
+      </div>
+    </TooltipProvider>
   );
 }

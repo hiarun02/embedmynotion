@@ -1,22 +1,23 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 import { prisma } from "@/lib/prisma";
+import { safeRedirectPath } from "@/lib/safe-redirect";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
+import { appUrl } from "@/lib/site-config";
 import { createClient } from "@/lib/supabase/server";
-
-function safeRedirectPath(value: string | null) {
-  return value && /^\/(?!\/)/.test(value) ? value : "/dashboard";
-}
 
 export async function GET(request: NextRequest) {
   if (!isSupabaseConfigured()) {
-    const loginUrl = new URL("/login", request.url);
+    const loginUrl = appUrl("/login", request.url);
     loginUrl.searchParams.set("error", "config_missing");
     return NextResponse.redirect(loginUrl);
   }
 
   const code = request.nextUrl.searchParams.get("code");
-  const next = safeRedirectPath(request.nextUrl.searchParams.get("next"));
+  const next = safeRedirectPath(
+    request.nextUrl.searchParams.get("next"),
+    "/dashboard",
+  );
 
   if (code) {
     const supabase = await createClient();
@@ -54,12 +55,12 @@ export async function GET(request: NextRequest) {
           },
         });
 
-        return NextResponse.redirect(new URL(next, request.url));
+        return NextResponse.redirect(appUrl(next, request.url));
       }
     }
   }
 
-  const loginUrl = new URL("/login", request.url);
+  const loginUrl = appUrl("/login", request.url);
   loginUrl.searchParams.set("error", "oauth_callback_failed");
   return NextResponse.redirect(loginUrl);
 }

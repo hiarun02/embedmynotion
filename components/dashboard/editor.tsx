@@ -1,7 +1,13 @@
 "use client";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, type FormEvent, type ReactNode } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent,
+  type ReactNode,
+} from "react";
 import {
   Check,
   Code2,
@@ -23,6 +29,7 @@ import {
   MoveHorizontal,
   MoveVertical,
   Paintbrush,
+  Palette,
   Save,
   ShieldCheck,
   Square,
@@ -57,9 +64,14 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { embedCode, validNotionUrl, type Embed } from "@/lib/dashboard-model";
+import {
+  embedBackgroundStyles,
+  embedBackgroundValue,
+} from "@/lib/embed-background";
 import { useWorkspace } from "./store";
-import { UpgradeDialog, copyCode } from "./dashboard";
+import { copyCode } from "./dashboard-shared";
 import { NotionFrame } from "./notion-frame";
+import { UpgradeDialog } from "./upgrade-dialog";
 
 function parseAllowedEmails(value: string) {
   return [...new Set(
@@ -89,7 +101,7 @@ export function EmbedEditor({ id }: { id?: string }) {
       passwordProtected: false,
       emailAccess: false,
       allowedEmails: [],
-      hideWatermark: false,
+      hideWatermark: workspace.plan === "Pro",
       height: 700,
       fullWidth: true,
       width: 640,
@@ -98,6 +110,7 @@ export function EmbedEditor({ id }: { id?: string }) {
       borderWidth: 1,
       borderColor: "#e5e7eb",
       radius: 8,
+      backgroundStyle: "none",
       active: true,
       createdAt: "",
       updatedAt: "",
@@ -111,6 +124,59 @@ export function EmbedEditor({ id }: { id?: string }) {
   const [allowedEmailText, setAllowedEmailText] = useState(
     existing?.allowedEmails.join("\n") ?? "",
   );
+  const [titleLookupStatus, setTitleLookupStatus] = useState<
+    "idle" | "loading" | "filled" | "error"
+  >("idle");
+  const titleWasEdited = useRef(Boolean(existing?.title));
+
+  useEffect(() => {
+    if (existing || created || !validNotionUrl(draft.notionUrl)) {
+      return;
+    }
+
+    const controller = new AbortController();
+    const timer = window.setTimeout(async () => {
+      if (titleWasEdited.current) return;
+
+      setTitleLookupStatus("loading");
+
+      try {
+        const response = await fetch(
+          `/api/embeds/metadata?url=${encodeURIComponent(draft.notionUrl)}`,
+          { signal: controller.signal },
+        );
+        const result = (await response.json()) as {
+          title?: string;
+          message?: string;
+        };
+
+        if (!response.ok || !result.title) {
+          throw new Error(result.message ?? "Could not read the page title.");
+        }
+
+        if (!titleWasEdited.current) {
+          setDraft((current) => ({ ...current, title: result.title! }));
+          setTitleLookupStatus("filled");
+        } else {
+          setTitleLookupStatus("idle");
+        }
+      } catch (lookupError) {
+        if (
+          lookupError instanceof DOMException &&
+          lookupError.name === "AbortError"
+        ) {
+          return;
+        }
+        setTitleLookupStatus("error");
+      }
+    }, 450);
+
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [created, draft.notionUrl, existing]);
+
   function change<K extends keyof Embed>(key: K, value: Embed[K]) {
     setDraft((d) => ({ ...d, [key]: value }));
   }
@@ -155,10 +221,10 @@ export function EmbedEditor({ id }: { id?: string }) {
       !existing?.passwordProtected &&
       !created?.passwordProtected
     ) {
-      return setError("Choose a password with at least 8 characters.");
+      return setError("Choose a password with at least 6 characters.");
     }
-    if (password && (password.length < 8 || password.length > 72)) {
-      return setError("Use a password between 8 and 72 characters.");
+    if (password && (password.length < 6 || password.length > 72)) {
+      return setError("Use a password between 6 and 72 characters.");
     }
     if (draft.emailAccess && allowedEmails.length === 0) {
       return setError("Add at least one email address with access.");
@@ -250,7 +316,15 @@ export function EmbedEditor({ id }: { id?: string }) {
                     id="notion-url"
                     type="url"
                     value={draft.notionUrl}
-                    onChange={(e) => change("notionUrl", e.target.value)}
+                    onChange={(e) => {
+                      const notionUrl = e.target.value;
+                      setTitleLookupStatus(
+                        !titleWasEdited.current && validNotionUrl(notionUrl)
+                          ? "loading"
+                          : "idle",
+                      );
+                      change("notionUrl", notionUrl);
+                    }}
                     placeholder="https://your-space.notion.site/…"
                     readOnly={Boolean(existing || created)}
                     aria-describedby="notion-url-help"
@@ -267,14 +341,24 @@ export function EmbedEditor({ id }: { id?: string }) {
                   <Input
                     id="embed-name"
                     value={draft.title}
-                    onChange={(e) => change("title", e.target.value)}
+                    onChange={(e) => {
+                      titleWasEdited.current = true;
+                      setTitleLookupStatus("idle");
+                      change("title", e.target.value);
+                    }}
                     placeholder="e.g. Studio handbook"
                     maxLength={100}
                     aria-describedby="embed-name-help"
                     required
                   />
-                  <small id="embed-name-help">
-                    Only you see this name in your dashboard.
+                  <small id="embed-name-help" aria-live="polite">
+                    {titleLookupStatus === "loading"
+                      ? "Reading the page name from Notion…"
+                      : titleLookupStatus === "filled"
+                        ? "Filled from Notion. You can edit this dashboard name."
+                        : titleLookupStatus === "error"
+                          ? "We couldn't read the page name. Enter one manually."
+                          : "Only you see this name in your dashboard."}
                   </small>
                 </div>
               </section>
@@ -465,6 +549,38 @@ export function EmbedEditor({ id }: { id?: string }) {
                     </button>
                   </div>
                 </div>
+                <div className="background-style-field">
+                  <div className="background-style-heading">
+                    <div className="feature-setting-label">
+                      <Palette aria-hidden="true" />
+                      <div>
+                        <Label>Background style</Label>
+                        <small>Add a polished frame around your page.</small>
+                      </div>
+                    </div>
+                  </div>
+                  <div
+                    className="background-style-grid"
+                    role="radiogroup"
+                    aria-label="Embed background style"
+                  >
+                    {embedBackgroundStyles.map((style) => (
+                      <button
+                        key={style.id}
+                        type="button"
+                        className={`${
+                          draft.backgroundStyle === style.id ? "selected" : ""
+                        }${style.id === "none" ? " is-none" : ""}`}
+                        style={{ background: embedBackgroundValue(style.id) }}
+                        onClick={() => change("backgroundStyle", style.id)}
+                        role="radio"
+                        aria-label={style.label}
+                        aria-checked={draft.backgroundStyle === style.id}
+                        title={style.label}
+                      />
+                    ))}
+                  </div>
+                </div>
                 <div className="feature-setting-row">
                   <div className="feature-setting-label">
                     <Type aria-hidden="true" />
@@ -584,27 +700,17 @@ export function EmbedEditor({ id }: { id?: string }) {
                       id="embed-password-setting"
                       type="password"
                       value={password}
-                      minLength={8}
+                      minLength={6}
                       maxLength={72}
                       autoComplete="new-password"
                       onChange={(event) => setPassword(event.target.value)}
-                      placeholder={existing?.passwordProtected ? "Leave blank to keep current password" : "At least 8 characters"}
+                      placeholder={existing?.passwordProtected ? "Leave blank to keep current password" : "At least 6 characters"}
                     />
                     <small>
-                      The editor preview stays unlocked. Save your changes, then
-                      test the public embed in a private browser window.
+                      The password screen is shown in the editor preview. Save
+                      your changes, then test the real unlock flow in a private
+                      browser window.
                     </small>
-                    {id || created?.id ? (
-                      <Link
-                        className="security-test-link"
-                        href={`/embed/${id ?? created?.id}`}
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        Open public embed
-                        <ExternalLink aria-hidden="true" />
-                      </Link>
-                    ) : null}
                   </div>
                 ) : null}
                 <FeatureSwitchRow
@@ -645,9 +751,17 @@ export function EmbedEditor({ id }: { id?: string }) {
                 />
               </div>
               <div className="pro-feature">
-                <Lock size={14} />
-                <span>Remove watermark</span>
-                <span className="ml-auto text-[10px]">PRO · COMING SOON</span>
+                {workspace.plan === "Pro" ? (
+                  <Check size={14} />
+                ) : (
+                  <Lock size={14} />
+                )}
+                <span>
+                  {workspace.plan === "Pro"
+                    ? "Watermark removed"
+                    : "Remove watermark"}
+                </span>
+                <span className="ml-auto text-[10px]">PRO</span>
               </div>
             </Card>
             {error && (
@@ -666,7 +780,10 @@ export function EmbedEditor({ id }: { id?: string }) {
               >
                 Cancel
               </Button>
-              <Button type="submit" disabled={saving}>
+              <Button
+                type="submit"
+                disabled={saving || titleLookupStatus === "loading"}
+              >
                 <Save size={15} />
                 {saving
                   ? "Saving…"
@@ -683,7 +800,11 @@ export function EmbedEditor({ id }: { id?: string }) {
           >
             <div className="preview-browser">
               <div className="preview-canvas">
-                <NotionFrame embed={draft} />
+                <NotionFrame
+                  key={draft.passwordProtected ? "protected" : "unprotected"}
+                  embed={draft}
+                  previewPassword={password}
+                />
               </div>
             </div>
           </div>
@@ -755,16 +876,19 @@ function FeatureSwitchRow({
 }
 
 function EditorCodePanel({ embed }: { embed: Embed }) {
-  const origin = typeof window === "undefined" ? "" : window.location.origin;
-  const publicUrl = `${origin}/embed/${encodeURIComponent(embed.id)}`;
-  const shortcode = `[iframe src="${publicUrl}" width="${embed.fullWidth ? "100%" : embed.width}" height="${embed.fullHeight ? "100%" : embed.height}" style="border:${embed.border ? `${embed.borderWidth}px solid ${embed.borderColor}` : "0"};border-radius:${embed.radius}px;max-width:100%"]`;
+  const publicPath = `/embed/${encodeURIComponent(embed.id)}`;
+
+  function absolutePublicUrl() {
+    return new URL(publicPath, window.location.origin).toString();
+  }
 
   async function copyUrl() {
-    await navigator.clipboard.writeText(publicUrl);
+    await navigator.clipboard.writeText(absolutePublicUrl());
     toast.success("Embed URL copied");
   }
 
   async function copyShortcode() {
+    const shortcode = `[iframe src="${absolutePublicUrl()}" width="${embed.fullWidth ? "100%" : embed.width}" height="${embed.fullHeight ? "100%" : embed.height}" style="border:${embed.border ? `${embed.borderWidth}px solid ${embed.borderColor}` : "0"};border-radius:${embed.radius}px;max-width:100%"]`;
     await navigator.clipboard.writeText(shortcode);
     toast.success("WordPress shortcode copied");
   }
@@ -772,41 +896,52 @@ function EditorCodePanel({ embed }: { embed: Embed }) {
   return (
     <section className="editor-code-panel" aria-label="Customization actions">
       <div className="editor-code-heading">
-        <div>
+        <div className="editor-code-title">
           <strong>Customization</strong>
           <small>Shape how this embed appears on your website.</small>
         </div>
-        <DropdownMenu>
-          <DropdownMenuTrigger
-            render={
-              <button
-                type="button"
-                className="editor-more-button"
-                aria-label="Open embed copy menu"
-              />
-            }
+        <div className="editor-code-actions">
+          <Link
+            className="editor-public-link"
+            href={publicPath}
+            target="_blank"
+            rel="noreferrer"
           >
-            <MoreVertical />
-          </DropdownMenuTrigger>
-          <DropdownMenuContent
-            align="end"
-            className="w-56 shadow-none"
-          >
-            <DropdownMenuItem onClick={copyUrl}>
-              <Link2 />
-              Copy embed URL
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => copyCode(embed)}>
-              <Code2 />
-              Copy embed code
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={copyShortcode}>
-              <FileCode2 />
-              Copy WordPress shortcode
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+            <span>Open public embed</span>
+            <ExternalLink aria-hidden="true" />
+          </Link>
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <button
+                  type="button"
+                  className="editor-more-button"
+                  aria-label="Open embed copy menu"
+                />
+              }
+            >
+              <MoreVertical />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              align="end"
+              className="w-56 shadow-none"
+            >
+              <DropdownMenuItem onClick={copyUrl}>
+                <Link2 />
+                Copy embed URL
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => copyCode(embed)}>
+                <Code2 />
+                Copy embed code
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={copyShortcode}>
+                <FileCode2 />
+                Copy WordPress shortcode
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
     </section>
   );

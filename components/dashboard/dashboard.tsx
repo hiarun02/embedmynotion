@@ -1,49 +1,26 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { useRef, useState, type ReactNode } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import {
   ArrowRight,
-  Check,
-  ChevronDown,
   Code2,
   Copy,
-  CreditCard,
   ExternalLink,
   FileText,
-  LayoutDashboard,
-  LogOut,
-  Menu,
   MoreHorizontal,
   Pencil,
   Plus,
   Search,
-  Settings,
-  Sparkles,
   Trash2,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
 import {
   Dialog,
   DialogContent,
@@ -77,23 +54,70 @@ import {
   TableRow,
   TableCell,
 } from "@/components/ui/table";
-import { embedCode, type Embed } from "@/lib/dashboard-model";
-import { setDemoPlan } from "@/lib/demo-plan";
+import type { Embed } from "@/lib/dashboard-model";
+import { copyCode, PageHeading } from "./dashboard-shared";
 import { useWorkspace } from "./store";
 import { NotionFrame } from "./notion-frame";
-import { Logo } from "@/app/components/Logo";
+import { UpgradeDialog } from "./upgrade-dialog";
 
-export async function copyCode(embed: Embed) {
-  try {
-    await navigator.clipboard.writeText(
-      embedCode(embed, window.location.origin),
+type DashboardPageIcon =
+  | { kind: "emoji"; value: string }
+  | { kind: "image"; value: string };
+
+type DashboardIconMap = Record<string, DashboardPageIcon | null>;
+
+let dashboardIconsRequest: Promise<DashboardIconMap | null> | null = null;
+
+function loadDashboardPageIcon(embedId: string) {
+  dashboardIconsRequest ??= fetch("/api/embeds/icons")
+    .then(async (response) => {
+      if (!response.ok) return null;
+      const result = (await response.json()) as {
+        icons?: DashboardIconMap;
+      };
+      return result.icons ?? null;
+    })
+    .catch(() => null);
+
+  return dashboardIconsRequest.then(async (icons) => {
+    if (icons && embedId in icons) return icons[embedId];
+
+    const response = await fetch(
+      `/api/embeds/${encodeURIComponent(embedId)}/icon`,
     );
-    toast.success("Embed code copied");
-  } catch {
-    toast.error(
-      "Clipboard access is unavailable. Copy the code from the editor instead.",
-    );
+    if (!response.ok) return null;
+    const result = (await response.json()) as {
+      icon?: DashboardPageIcon | null;
+    };
+    return result.icon ?? null;
+  });
+}
+
+function EmbedPageIcon({ embedId, size }: { embedId: string; size: number }) {
+  const [pageIcon, setPageIcon] = useState<DashboardPageIcon | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    void loadDashboardPageIcon(embedId).then((icon) => {
+      if (active) setPageIcon(icon);
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [embedId]);
+
+  if (pageIcon?.kind === "image") {
+    // Notion image URLs are dynamic and should be rendered without optimization.
+    // eslint-disable-next-line @next/next/no-img-element
+    return <img src={pageIcon.value} alt="" />;
   }
+
+  if (pageIcon?.kind === "emoji") {
+    return <span className="dashboard-page-icon-emoji">{pageIcon.value}</span>;
+  }
+
+  return <FileText size={size} strokeWidth={1.5} />;
 }
 
 async function deleteEmbed(id: string) {
@@ -104,195 +128,6 @@ async function deleteEmbed(id: string) {
     message?: string;
   } | null;
   throw new Error(result?.message ?? "The embed could not be deleted.");
-}
-const navigation = [
-  { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
-  { href: "/dashboard/embeds", label: "Embeds", icon: Code2 },
-  { href: "/dashboard/billing", label: "Billing", icon: CreditCard },
-];
-export function DashboardShell({ children }: { children: ReactNode }) {
-  const pathname = usePathname();
-  const { workspace } = useWorkspace();
-  const [mobile, setMobile] = useState(false);
-  const signOutForm = useRef<HTMLFormElement>(null);
-  const isEditorPage =
-    pathname === "/dashboard/embeds/new" ||
-    /^\/dashboard\/embeds\/[^/]+$/.test(pathname);
-  const isCenteredPage =
-    pathname === "/dashboard" || pathname === "/dashboard/embeds";
-  const currentItem =
-    navigation.find(
-      (n) => n.href !== "/dashboard" && pathname.startsWith(n.href),
-    ) ?? navigation[0];
-  const current = currentItem.label;
-  return (
-    <div className="dashboard-app">
-      <aside className="dashboard-sidebar">
-        <Link
-          href="/"
-          className="dashboard-logo"
-          aria-label="Go to EmbedMyNotion home"
-        >
-          <Logo />
-        </Link>
-        <p className="nav-label">MENU</p>
-        <nav aria-label="Main navigation">
-          {navigation.map((n) => (
-            <Link
-              key={n.href}
-              href={n.href}
-              className={`dashboard-nav ${current === n.label ? "selected" : ""}`}
-              aria-current={current === n.label ? "page" : undefined}
-            >
-              <n.icon size={17} />
-              {n.label}
-            </Link>
-          ))}
-        </nav>
-        <div className="sidebar-bottom">
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              render={
-                <button
-                  type="button"
-                  className="profile-link"
-                  aria-label="Open account menu"
-                />
-              }
-            >
-              <Avatar className="dashboard-avatar">
-                <AvatarImage
-                  src={workspace.avatarUrl ?? undefined}
-                  alt={`${workspace.name}'s profile photo`}
-                />
-                <AvatarFallback>
-                  {workspace.name
-                    .split(" ")
-                    .map((n) => n[0])
-                    .slice(0, 2)
-                    .join("")}
-                </AvatarFallback>
-              </Avatar>
-              <span>
-                {workspace.name}
-                <small>{workspace.email}</small>
-              </span>
-              <ChevronDown size={14} />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent side="top" align="start" className="mb-1">
-              <DropdownMenuItem
-                render={<Link href="/dashboard/settings" />}
-                className="text-[12px] leading-4 font-normal"
-              >
-                <Settings className="size-3.5" />
-                Settings
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                variant="destructive"
-                className="text-[12px] leading-4 font-normal"
-                onClick={() => signOutForm.current?.requestSubmit()}
-              >
-                <LogOut className="size-3.5" />
-                Log out
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-          <form
-            ref={signOutForm}
-            action="/auth/signout"
-            method="post"
-            className="hidden"
-          />
-        </div>
-      </aside>
-      <div className="dashboard-main">
-        <header className="dashboard-topbar">
-          <button
-            className="mobile-menu"
-            aria-label="Open navigation"
-            onClick={() => setMobile(true)}
-          >
-            <Menu size={20} />
-          </button>
-          <Breadcrumb>
-            <BreadcrumbList>
-              <BreadcrumbItem>
-                <BreadcrumbLink render={<Link href="/dashboard" />}>
-                  Dashboard
-                </BreadcrumbLink>
-              </BreadcrumbItem>
-              <BreadcrumbSeparator />
-              <BreadcrumbItem>
-                <BreadcrumbLink
-                  render={<Link href={currentItem.href} />}
-                  aria-current="page"
-                  className="dashboard-current-crumb"
-                >
-                  {current}
-                </BreadcrumbLink>
-              </BreadcrumbItem>
-            </BreadcrumbList>
-          </Breadcrumb>
-          <Badge
-            variant="outline"
-            className="ml-auto font-normal text-muted-foreground"
-          >
-            Local demo
-          </Badge>
-        </header>
-        <main
-          className={`dashboard-content${isEditorPage ? " dashboard-content-editor" : ""}${isCenteredPage ? " dashboard-content-centered" : ""}`}
-        >
-          {children}
-        </main>
-        <footer className="dashboard-footer">
-          <span>A little Notion. A lot of possibility.</span>
-          <span>EmbedMyNotion</span>
-        </footer>
-      </div>
-      <Sheet open={mobile} onOpenChange={setMobile}>
-        <SheetContent side="left" className="w-[280px] shadow-none">
-          <SheetHeader>
-            <SheetTitle>EmbedMyNotion</SheetTitle>
-            <SheetDescription>Manage your Notion embeds.</SheetDescription>
-          </SheetHeader>
-          <nav className="px-2" aria-label="Mobile navigation">
-            {navigation.map((n) => (
-              <Link
-                key={n.href}
-                href={n.href}
-                className="dashboard-nav dashboard-mobile-nav"
-                onClick={() => setMobile(false)}
-              >
-                <n.icon size={18} />
-                {n.label}
-              </Link>
-            ))}
-          </nav>
-        </SheetContent>
-      </Sheet>
-    </div>
-  );
-}
-export function PageHeading({
-  title,
-  subtitle,
-  children,
-}: {
-  title: string;
-  subtitle: string;
-  children?: ReactNode;
-}) {
-  return (
-    <div className="page-heading">
-      <div>
-        <h1>{title}</h1>
-        <p>{subtitle}</p>
-      </div>
-      {children}
-    </div>
-  );
 }
 export function CreateButton() {
   const { workspace } = useWorkspace();
@@ -405,7 +240,7 @@ export function DashboardHome() {
                 >
                   <div className="recent-primary">
                     <span className="recent-icon">
-                      <FileText size={17} />
+                      <EmbedPageIcon embedId={embed.id} size={17} />
                     </span>
                     <div>
                       <span className="recent-title">{embed.title}</span>
@@ -637,7 +472,7 @@ export function EmbedsList({ compact = false }: { compact?: boolean }) {
                 <TableCell className="pl-5">
                   <div className="embed-title-cell">
                     <span className="document-icon">
-                      <FileText size={20} strokeWidth={1.5} />
+                      <EmbedPageIcon embedId={embed.id} size={20} />
                     </span>
                     <div>
                       <span className="embed-row-title">
@@ -801,91 +636,5 @@ export function EmbedsList({ compact = false }: { compact?: boolean }) {
         </DialogContent>
       </Dialog>
     </>
-  );
-}
-export function UpgradeDialog({
-  open,
-  onOpenChange,
-}: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-}) {
-  const { workspace, update } = useWorkspace();
-  const [yearly, setYearly] = useState(false);
-  const [savingPlan, setSavingPlan] = useState(false);
-
-  async function enableDemoPro() {
-    setSavingPlan(true);
-    try {
-      const plan = await setDemoPlan("Pro", yearly ? "yearly" : "monthly");
-      update({ ...workspace, plan });
-      onOpenChange(false);
-      toast.success("Pro demo enabled for this account.");
-    } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Pro demo could not be enabled.",
-      );
-    } finally {
-      setSavingPlan(false);
-    }
-  }
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <span className="upgrade-icon">
-            <Sparkles size={22} />
-          </span>
-          <DialogTitle className="text-2xl">
-            More room for your ideas.
-          </DialogTitle>
-          <DialogDescription>
-            Go beyond one embed with EmbedMyNotion Pro.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="billing-toggle">
-          <button onClick={() => setYearly(false)} aria-pressed={!yearly}>
-            Monthly
-          </button>
-          <button onClick={() => setYearly(true)} aria-pressed={yearly}>
-            Yearly <span>−10%</span>
-          </button>
-        </div>
-        <div className="py-3">
-          <strong className="text-4xl tracking-tight">
-            ${yearly ? "75.60" : "7"}
-          </strong>
-          <span className="text-muted-foreground">
-            {" "}
-            / {yearly ? "year" : "month"}
-          </span>
-        </div>
-        <div className="space-y-3 text-sm">
-          {[
-            "25 customizable embeds",
-            "Appearance and layout controls",
-            "Password and email access",
-            "Remove watermark — planned",
-          ].map((t) => (
-            <p key={t} className="flex gap-3">
-              <Check size={16} />
-              {t}
-            </p>
-          ))}
-        </div>
-        <Button
-          size="lg"
-          className="dashboard-primary-button mt-3"
-          disabled={savingPlan}
-          onClick={enableDemoPro}
-        >
-          {savingPlan ? "Enabling Pro…" : "Try Pro in this demo"}
-          {!savingPlan && <ArrowRight size={15} />}
-        </Button>
-        <p className="text-xs text-center text-muted-foreground">
-          Demo access is saved to this account. Payments are not connected.
-        </p>
-      </DialogContent>
-    </Dialog>
   );
 }

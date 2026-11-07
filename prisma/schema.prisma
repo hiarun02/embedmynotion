@@ -71,16 +71,17 @@ model Embed {
   slug      String @unique
 
   // Appearance
-  theme        EmbedTheme @default(LIGHT)
-  font         EmbedFont  @default(DEFAULT)
-  fullWidth    Boolean    @default(true) @map("full_width")
-  width        Int        @default(640)
-  fullHeight   Boolean    @default(true) @map("full_height")
-  height       Int        @default(700)
-  border       Boolean    @default(false)
-  borderWidth  Int        @default(1) @map("border_width") @db.SmallInt
-  borderColor  String     @default("#e5e7eb") @map("border_color")
-  borderRadius Int        @default(8) @map("border_radius")
+  theme           EmbedTheme @default(LIGHT)
+  font            EmbedFont  @default(DEFAULT)
+  fullWidth       Boolean    @default(true) @map("full_width")
+  width           Int        @default(640)
+  fullHeight      Boolean    @default(true) @map("full_height")
+  height          Int        @default(700)
+  border          Boolean    @default(false)
+  borderWidth     Int        @default(1) @map("border_width") @db.SmallInt
+  borderColor     String     @default("#e5e7eb") @map("border_color")
+  borderRadius    Int        @default(8) @map("border_radius")
+  backgroundStyle String     @default("none") @map("background_style")
 
   // Premium customization
   customCss        String? @map("custom_css") @db.Text
@@ -132,4 +133,15 @@ model Subscription {
 
   @@index([providerCustomerId])
   @@map("subscriptions")
+}
+
+model SecurityRateLimit {
+  key          String    @id @db.VarChar(64)
+  attempts     Int       @default(0)
+  windowStart  DateTime  @map("window_start") @db.Timestamptz(3)
+  blockedUntil DateTime? @map("blocked_until") @db.Timestamptz(3)
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@index([updatedAt])
+  @@map("security_rate_limits")
 }

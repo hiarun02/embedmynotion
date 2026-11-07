@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { connection } from "next/server";
 
 import { Logo } from "@/app/components/Logo";
 import { Button } from "@/components/ui/button";
@@ -11,8 +12,9 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { getAuthenticatedUser } from "@/lib/auth-user";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
-import { createClient } from "@/lib/supabase/server";
+import { safeRedirectPath } from "@/lib/safe-redirect";
 
 export const metadata: Metadata = {
   title: "Sign in",
@@ -55,10 +57,6 @@ type LoginPageProps = {
   }>;
 };
 
-function safeRedirectPath(value: string | undefined) {
-  return value && /^\/(?!\/)/.test(value) ? value : "/dashboard";
-}
-
 const errorMessages: Record<string, string> = {
   config_missing:
     "Google sign-in is not configured yet. Add your Supabase project URL and publishable key to .env.local, then restart the app.",
@@ -69,18 +67,15 @@ const errorMessages: Record<string, string> = {
 };
 
 export default async function LoginPage({ searchParams }: LoginPageProps) {
+  // Supabase session validation depends on the current time and must only run
+  // after a real request has reached this intentionally dynamic page.
+  await connection();
+
   const params = await searchParams;
-  const next = safeRedirectPath(params.next);
+  const next = safeRedirectPath(params.next, "/dashboard");
   const configured = isSupabaseConfigured();
-  let isSignedIn = false;
-
-  if (configured) {
-    const supabase = await createClient();
-    const { data } = await supabase.auth.getClaims();
-    isSignedIn = Boolean(data?.claims);
-  }
-
-  if (isSignedIn) {
+  const user = configured ? await getAuthenticatedUser() : null;
+  if (user) {
     redirect(next);
   }
 

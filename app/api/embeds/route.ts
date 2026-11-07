@@ -53,7 +53,7 @@ export async function POST(request: Request) {
 
   if (input.passwordProtected && !input.password) {
     return NextResponse.json(
-      { message: "Choose a password with at least 8 characters." },
+      { message: "Choose a password with at least 6 characters." },
       { status: 400 },
     );
   }
@@ -96,11 +96,15 @@ export async function POST(request: Request) {
         borderWidth: input.borderWidth,
         borderColor: input.borderColor,
         borderRadius: input.radius,
+        backgroundStyle: input.backgroundStyle,
         isActive: input.active,
       },
     });
 
-    return NextResponse.json({ embed: serializeEmbed(embed) }, { status: 201 });
+    return NextResponse.json(
+      { embed: serializeEmbed(embed, { hasProAccess: hasProPlan }) },
+      { status: 201 },
+    );
   } catch (error) {
     console.error("Embed creation failed:", error);
     return NextResponse.json(

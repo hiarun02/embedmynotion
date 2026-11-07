@@ -3,12 +3,13 @@ import { redirect } from "next/navigation";
 import { connection } from "next/server";
 
 import { WorkspaceProvider } from "@/components/dashboard/store";
-import { DashboardShell } from "@/components/dashboard/dashboard";
+import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { Toaster } from "@/components/ui/sonner";
 import { prisma } from "@/lib/prisma";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
 import { serializeEmbed } from "@/lib/dashboard-model";
+import { isDemoPlanEnabled } from "@/lib/demo-mode";
 import { hasProAccess } from "@/lib/subscription";
 import "./dashboard.css";
 
@@ -29,9 +30,6 @@ export default async function Layout({ children }: { children: React.ReactNode }
   if (!isSupabaseConfigured()) redirect("/login?error=config_missing");
 
   const supabase = await createClient();
-  const { data: claimsData } = await supabase.auth.getClaims();
-  if (!claimsData?.claims) redirect("/login");
-
   const {
     data: { user },
     error: userError,
@@ -46,26 +44,15 @@ export default async function Layout({ children }: { children: React.ReactNode }
     stringMetadata(user.user_metadata.picture);
   const email = user.email ?? "No email available";
 
-  const storedProfile = await prisma.user.upsert({
-    where: { id: user.id },
-    create: {
-      id: user.id,
-      email: user.email,
-      name: authName,
-      avatarUrl: authAvatar,
-    },
-    update: {
-      email: user.email,
-      avatarUrl: authAvatar,
-    },
-    select: { name: true, email: true, avatarUrl: true },
-  });
-
   const provider =
     user.identities?.find((identity) => identity.provider === "google")
       ?.provider ?? stringMetadata(user.app_metadata.provider);
 
-  const [embeds, subscription] = await Promise.all([
+  const [storedProfile, embeds, subscription] = await Promise.all([
+    prisma.user.findUnique({
+      where: { id: user.id },
+      select: { name: true, email: true, avatarUrl: true },
+    }),
     prisma.embed.findMany({
       where: { userId: user.id },
       orderBy: { createdAt: "desc" },
@@ -81,14 +68,17 @@ export default async function Layout({ children }: { children: React.ReactNode }
       <WorkspaceProvider
         initialWorkspace={{
           name:
-            storedProfile.name ??
+            storedProfile?.name ??
             authName ??
             (email.includes("@") ? email.split("@")[0] : "Account"),
-          email: storedProfile.email ?? email,
-          avatarUrl: storedProfile.avatarUrl ?? authAvatar,
+          email: storedProfile?.email ?? email,
+          avatarUrl: storedProfile?.avatarUrl ?? authAvatar,
           authProvider: provider,
           plan: hasProPlan ? "Pro" : "Free",
-          embeds: embeds.map(serializeEmbed),
+          demoPlanEnabled: isDemoPlanEnabled(),
+          embeds: embeds.map((embed) =>
+            serializeEmbed(embed, { hasProAccess: hasProPlan }),
+          ),
         }}
       >
         <DashboardShell>{children}</DashboardShell>

@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { connection } from "next/server";
 
 import { Logo } from "./components/Logo";
 import { FaqSection } from "./components/landing-page/FaqSection";
@@ -9,12 +8,8 @@ import { Header } from "./components/landing-page/Header";
 import { HeroSection } from "./components/landing-page/HeroSection";
 import { HowItWorksSection } from "./components/landing-page/HowItWorksSection";
 import { ProblemSection } from "./components/landing-page/ProblemSection";
-import { isSupabaseConfigured } from "@/lib/supabase/config";
-import { createClient } from "@/lib/supabase/server";
 import { JsonLd } from "@/components/seo/json-ld";
 import { absoluteUrl, siteConfig } from "@/lib/site-config";
-
-export const instant = false;
 
 export const metadata: Metadata = {
   alternates: { canonical: "/" },
@@ -25,16 +20,7 @@ export const metadata: Metadata = {
   },
 };
 
-export default async function Home() {
-  await connection();
-
-  let isAuthenticated = false;
-  if (isSupabaseConfigured()) {
-    const supabase = await createClient();
-    const { data } = await supabase.auth.getClaims();
-    isAuthenticated = Boolean(data?.claims);
-  }
-
+export default function Home() {
   const organizationId = absoluteUrl("/#organization");
   const websiteId = absoluteUrl("/#website");
   const jsonLd = [
@@ -82,11 +68,11 @@ export default async function Home() {
   return (
     <>
       <JsonLd data={jsonLd} />
-      <Header isAuthenticated={isAuthenticated}>
+      <Header>
         <Logo />
       </Header>
       <main id="top">
-        <HeroSection isAuthenticated={isAuthenticated} />
+        <HeroSection />
         <ProblemSection />
         <FeaturesSection />
         <HowItWorksSection />

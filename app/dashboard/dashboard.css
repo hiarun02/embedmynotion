@@ -487,6 +487,19 @@
   background: #fff4ec;
   color: #d84a13;
 }
+.recent-icon img,
+.document-icon img {
+  display: block;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  object-fit: cover;
+}
+.dashboard-page-icon-emoji {
+  font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
+  font-size: 21px;
+  line-height: 1;
+}
 .recent-title {
   display: block;
   color: #161616;
@@ -954,7 +967,7 @@
   min-height: var(--editor-top-bar-height, 86px);
   padding: 14px 20px;
 }
-.editor-code-heading > div {
+.editor-code-title {
   min-width: 0;
   display: grid;
   gap: 4px;
@@ -970,6 +983,41 @@
   font-size: 9px;
   white-space: nowrap;
   text-overflow: ellipsis;
+}
+.editor-code-actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+}
+.editor-public-link {
+  display: inline-flex;
+  height: 34px;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid #ffd1bd;
+  border-radius: 8px;
+  padding: 0 10px;
+  color: #d84912;
+  background: #fff7f2;
+  font-size: 9px;
+  font-weight: 650;
+  line-height: 1;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: border-color 150ms ease, background-color 150ms ease;
+}
+.editor-public-link:hover {
+  border-color: #ffb895;
+  background: #fff0e8;
+}
+.editor-public-link:focus-visible {
+  outline: 2px solid #ff8a50;
+  outline-offset: 2px;
+}
+.editor-public-link svg {
+  width: 12px;
+  height: 12px;
 }
 .editor-more-button {
   display: grid;
@@ -1438,6 +1486,59 @@
   width: 14px;
   height: 14px;
 }
+.background-style-field {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border-bottom: 1px solid #ece7e3;
+  background: #fff;
+}
+.background-style-heading .feature-setting-label {
+  align-items: flex-start;
+}
+.background-style-heading .feature-setting-label > div {
+  display: grid;
+  gap: 3px;
+}
+.background-style-heading small {
+  color: #8c8580;
+  font-size: 9px;
+  line-height: 1.35;
+}
+.background-style-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+}
+.background-style-grid button {
+  position: relative;
+  aspect-ratio: 1.35;
+  cursor: pointer;
+  border: 2px solid #fff;
+  border-radius: 7px;
+  box-shadow: 0 0 0 1px #ded8d4;
+  transition: transform .16s ease, box-shadow .16s ease;
+}
+.background-style-grid button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 0 0 1px #bfaaa0, 0 4px 10px rgba(58, 42, 32, .1);
+}
+.background-style-grid button.selected {
+  box-shadow: 0 0 0 2px #ff6414, 0 5px 12px rgba(255, 100, 20, .18);
+}
+.background-style-grid button.is-none {
+  background: #fff !important;
+}
+.background-style-grid button.is-none::after {
+  position: absolute;
+  top: 50%;
+  right: 17%;
+  left: 17%;
+  height: 1px;
+  content: "";
+  background: #c8c1bc;
+  transform: rotate(-32deg);
+}
 .feature-select {
   width: 150px;
   height: 35px;
@@ -1479,24 +1580,6 @@
   color: #99928d;
   font-size: 8px;
   line-height: 1.5;
-}
-.security-test-link {
-  display: inline-flex;
-  width: fit-content;
-  align-items: center;
-  gap: 5px;
-  color: #e94d16;
-  font-size: 9px;
-  font-weight: 600;
-  text-decoration: none;
-}
-.security-test-link:hover {
-  color: #ff5a1f;
-  text-decoration: underline;
-}
-.security-test-link svg {
-  width: 11px;
-  height: 11px;
 }
 .active-embed-switch {
   margin-top: 0;
@@ -1660,6 +1743,13 @@
   margin-inline: auto;
   background: transparent;
 }
+.notion-preview-style-shell {
+  box-sizing: border-box;
+  width: 100%;
+}
+.notion-preview-style-shell.has-background-style {
+  box-shadow: 0 18px 48px rgba(24, 31, 52, .16);
+}
 .notion-preview-header {
   position: fixed;
   top: 0;
@@ -1678,8 +1768,19 @@
 .notion-preview-back {
   flex: none;
   display: grid;
+  width: 32px;
+  height: 32px;
   place-items: center;
+  border-radius: 8px;
   color: #77736f;
+}
+.notion-preview-back:hover {
+  color: #2d2926;
+  background: #f4f1ef;
+}
+.notion-preview-back:focus-visible {
+  outline: 2px solid #ff8c59;
+  outline-offset: 2px;
 }
 .notion-preview-back svg {
   width: 18px;
@@ -1698,6 +1799,18 @@
 .notion-preview-icon svg {
   width: 23px;
   height: 23px;
+}
+.notion-preview-icon img {
+  display: block;
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  object-fit: cover;
+}
+.notion-preview-icon-emoji {
+  font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
+  font-size: 23px;
+  line-height: 1;
 }
 .notion-preview-identity {
   min-width: 0;
@@ -1756,8 +1869,108 @@
   background: #ffffff;
 }
 .notion-preview-page-frame {
+  position: relative;
   overflow: hidden;
   background: #ffffff;
+}
+@media (min-width: 901px) {
+  .editor-preview .notion-preview-page-frame,
+  .editor-preview .notion-live-frame {
+    min-height: calc(
+      100svh - var(--editor-top-bar-height) - var(--editor-bottom-bar-height)
+    );
+  }
+}
+.notion-preview-page-frame.is-password-protected .notion-live-frame {
+  pointer-events: none;
+  filter: blur(5px);
+  opacity: .22;
+}
+.password-preview-gate {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: grid;
+  place-items: start center;
+  padding: clamp(22px, 7vw, 72px) 18px 32px;
+  background: rgba(255, 250, 247, .94);
+}
+.password-preview-card {
+  width: min(100%, 390px);
+  border: 1px solid #e9e1dc;
+  border-radius: 16px;
+  padding: 34px;
+  color: #1d1a18;
+  background: #fff;
+  box-shadow: 0 18px 55px rgba(70, 43, 27, .09);
+  text-align: center;
+}
+.password-preview-logo {
+  display: block;
+  width: 44px;
+  height: 44px;
+  margin: 0 auto 20px;
+}
+.password-preview-card h2 {
+  margin: 0;
+  color: #1d1a18;
+  font-size: 22px;
+  letter-spacing: -.04em;
+}
+.password-preview-card > p {
+  margin: 10px 0 22px;
+  color: #77716d;
+  font-size: 12px;
+  line-height: 1.6;
+}
+.password-preview-fields {
+  display: grid;
+  gap: 10px;
+  text-align: left;
+}
+.password-preview-card label {
+  color: #5f5955;
+  font-size: 10px;
+  font-weight: 600;
+}
+.password-preview-card input {
+  width: 100%;
+  height: 42px;
+  border: 1px solid #ded8d4;
+  border-radius: 9px;
+  padding: 0 12px;
+  color: #272725;
+  background: #fff;
+  outline: none;
+  font-size: 12px;
+}
+.password-preview-card input:focus {
+  border-color: #ff8c59;
+  box-shadow: 0 0 0 3px rgba(255, 100, 20, .1);
+}
+.password-preview-error {
+  color: #b33b2d;
+  font-size: 10px;
+  line-height: 1.4;
+}
+.password-preview-card button {
+  min-height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 3px;
+  cursor: pointer;
+  border: 1px solid #ff6414;
+  border-radius: 9px;
+  padding: 0 16px;
+  color: #fff;
+  background: #ff6414;
+  font-size: 11px;
+  font-weight: 650;
+}
+.password-preview-card button:disabled {
+  cursor: wait;
+  opacity: .7;
 }
 .notion-frame-empty {
   display: grid;
